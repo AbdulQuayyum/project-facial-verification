@@ -1,11 +1,9 @@
-import mongoose from "mongoose";
-const { Schema } = mongoose;
+import mongoose from 'mongoose';
 
-const VerficationsSchema = new Schema({
+const schema = new mongoose.Schema({
     matricNumber: {
         type: String,
-        required: true,
-        match: /^\d{2}\d{2}[A-Z]{2}\d{3}$/ 
+        required: true
     },
     timestamp: {
         type: Date,
@@ -38,4 +36,6 @@ const VerficationsSchema = new Schema({
     processingTime: Number
 });
 
-export default mongoose.model('Verifications', VerficationsSchema);
+const VerificationSchema = mongoose.model('Verifications', schema);
+
+export default VerificationSchema;
