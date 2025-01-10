@@ -3,8 +3,7 @@ import mongoose from 'mongoose';
 const schema = new mongoose.Schema({
     matricNumber: {
         type: String,
-        required: true,
-        match: /^\d{2}\d{2}[A-Z]{2}\d{3}$/ 
+        required: true
     },
     timestamp: {
         type: Date,
@@ -37,6 +36,6 @@ const schema = new mongoose.Schema({
     processingTime: Number
 });
 
-const VerificationSchema = mongoose.model('Message', schema);
+const VerificationSchema = mongoose.model('Verifications', schema);
 
 export default VerificationSchema;

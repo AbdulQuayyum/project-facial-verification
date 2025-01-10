@@ -47,9 +47,9 @@ export async function CreateAccount(req, res) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        new UserSchema({ matricnumber, password: hashedPassword });
-
-
+        const newuser = new UserSchema({ matricnumber, password: hashedPassword });
+        await newuser.save();
+        
         res.status(HTTP_STATUS_CREATED).json({
             success: true,
             status: HTTP_STATUS_CREATED,

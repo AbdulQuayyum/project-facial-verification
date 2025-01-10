@@ -2,9 +2,9 @@ import VerificationSchema from "../models/verifications.js"
 import { HTTP_STATUS_BAD_REQUEST, HTTP_STATUS_INTERNAL_SERVER_ERROR, HTTP_STATUS_OK } from "../utilities/status.js";
 
 export async function GetVerification(req, res) {
-    const { matricNumber } = req.params;
+    const { matricnumber } = req.body;
 
-    if (!matricNumber) {
+    if (!matricnumber) {
         return res.status(HTTP_STATUS_BAD_REQUEST).json({
             success: false,
             status: HTTP_STATUS_BAD_REQUEST,
@@ -13,7 +13,7 @@ export async function GetVerification(req, res) {
         });
     }
     try {
-        const allverification = await VerificationSchema.find({ matricNumber: req.params.matricNumber }).sort({ verificationTime: -1 });
+        const allverification = await VerificationSchema.find({ matricnumber: req.params.matricnumber }).sort({ verificationTime: -1 });
         return res.status(HTTP_STATUS_OK).json({
             success: true,
             status: HTTP_STATUS_OK,
