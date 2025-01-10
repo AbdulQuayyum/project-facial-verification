@@ -1,7 +1,6 @@
-import mongoose from "mongoose";
-const { Schema } = mongoose;
+import mongoose from 'mongoose';
 
-const VerficationsSchema = new Schema({
+const schema = new mongoose.Schema({
     matricNumber: {
         type: String,
         required: true,
@@ -38,4 +37,6 @@ const VerficationsSchema = new Schema({
     processingTime: Number
 });
 
-export default mongoose.model('Verifications', VerficationsSchema);
+const VerificationSchema = mongoose.model('Message', schema);
+
+export default VerificationSchema;

@@ -1,9 +1,9 @@
-import verifications from "../models/verifications.js";
+import VerificationSchema from "../models/verifications.js"
 import { HTTP_STATUS_BAD_REQUEST, HTTP_STATUS_CONFLICT, HTTP_STATUS_CREATED, HTTP_STATUS_FORBIDDEN, HTTP_STATUS_INTERNAL_SERVER_ERROR, HTTP_STATUS_NOT_FOUND, HTTP_STATUS_OK } from "../utilities/Status.js";
 
 export async function CreateVerification(req, res) {
     try {
-        const verification = new verifications(req.body);
+        const verification = new VerificationSchema(req.body);
         await verification.save();
         res.status(HTTP_STATUS_CREATED).json({
             success: true,
@@ -34,7 +34,7 @@ export async function GetVerification(req, res) {
         });
     }
     try {
-        const allverification = await verifications.find({ matricNumber: req.params.matricNumber }).sort({ verificationTime: -1 });
+        const allverification = await VerificationSchema.find({ matricNumber: req.params.matricNumber }).sort({ verificationTime: -1 });
         return res.status(HTTP_STATUS_OK).json({
             success: true,
             status: HTTP_STATUS_OK,
@@ -53,7 +53,7 @@ export async function GetVerification(req, res) {
 
 export async function GetAllVerifications(req, res) {
     try {
-        const allverifications = await verifications.find();
+        const allverifications = await VerificationSchema.find();
 
         if (!allverifications.length) {
             return res.status(HTTP_STATUS_OK).json({
