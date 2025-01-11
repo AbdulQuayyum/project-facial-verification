@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveVerificationLog(verificationData) {
         try {
-            const response = await fetch('http://localhost:8888/v1/verification/record-verification', {
+            const response = await fetch('https://project-facial-verification.onrender.com/v1/verification/record-verification', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
