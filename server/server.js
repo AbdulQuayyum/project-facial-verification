@@ -7,6 +7,7 @@ import ConnectDB from "./configurations/connect.js";
 import VerificationRoutes from "./routes/verification.js"
 import AuthRoutes from "./routes/auth.js"
 import UserRoutes from "./routes/user.js"
+import "./utilities/cronjob.js"
 
 const app = express()
 const port = 8888
