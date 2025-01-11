@@ -26,10 +26,8 @@ const schema = new mongoose.Schema({
         blinkCount: Number,
         detectionCount: Number
     },
-    imageUrl: {
-        type: String,
-        required: true
-    },
+    storedImageUrl: { type: String },
+    capturedImageBase64: { type: String },
     ipAddress: String,
     userAgent: String,
     errorMessage: String,

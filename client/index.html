@@ -12,12 +12,38 @@
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/client/assets/scripts/main.js"></script>
+    <script src="/client/assets/scripts/face-api.min.js"></script>
     <link rel="stylesheet" href="/client/assets/styles/index.css">
 </head>
 
 <body>
-    <div class="container">
-        <h1 class=" text-[#00044b] text-2xl">Facial Verification of Students (University of Ilorin as a Case Study) </h1>
+    <div class="container ">
+        <h1 class=" text-[#00044b] text-2xl text-center">Facial Verification of Students (University of Ilorin as a Case Study) </h1>
+        <div class="flex justify-center items-center w-full">
+            <div class="flex items-start justify-start w-full  md:max-w-[740px] gap-y-2 flex-col">
+                <label for="matricNumber">Enter Matric Number:</label>
+                <input class="flex px-4 rounded-lg h-[50px] border border-[#ccc] w-full" type="text" id="matricNumber" placeholder="Format: XX/XXXXXXXX (e.g., 20/52HA001)">
+            </div>
+        </div>
+
+        <div class="video-container">
+            <video id="videoElement" autoplay playsinline></video>
+            <canvas id="faceCanvas"></canvas>
+        </div>
+
+        <div class="progress-bar  md:max-w-[740px]">
+            <div id="progressBar" class="progress "></div>
+        </div>
+
+        <div class="button-container">
+            <button id="startButton" class="bg-[#00044b] flex justify-center items-center h-[50px] rounded-lg text-white px-12">Start Verification</button>
+            <button id="retryButton" class="bg-[#ccc] flex justify-center items-center h-[50px] rounded-lg text-[#00044b] px-12" disabled>Retry</button>
+        </div>
+
+        <div id="statusMessage"></div>
+        <div id="loadingMessage" class="loading" style="display: none">
+            Loading face detection models...
+        </div>
     </div>
     <button id="scrollToTopBtn">
         ↑
