@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollToTopBtn.onclick = function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
-    const MODELS_PATH = '/client/assets/models';
+    const MODELS_PATH = '/assets/models';
     const REQUIRED_BLINKS = 0;
     const VERIFICATION_THRESHOLD = 0.6;
     const RECORDING_DURATION = 5000;
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const formattedMatric = formatMatricNumber(matric);
             const imageUrl = `https://schooltry-tertiary-2.s3.eu-west-1.amazonaws.com/Unilorin/profilePictures/${formattedMatric}.jpg`;
-            // const imageUrl = `/client/assets/images/2052HA027.jpg`;
+            // const imageUrl = `/assets/images/2052HA027.jpg`;
 
             const img = new Image();
             img.crossOrigin = 'anonymous';
