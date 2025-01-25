@@ -32,9 +32,9 @@ export async function GetVerification(req, res) {
 
 export async function GetAllVerifications(req, res) {
     try {
-        const allverifications = await VerificationSchema.find();
+        const allVerifications = await VerificationSchema.find().sort({ timestamp: -1 }).limit(100);
 
-        if (!allverifications.length) {
+        if (!allVerifications.length) {
             return res.status(HTTP_STATUS_OK).json({
                 success: true,
                 status: HTTP_STATUS_OK,
@@ -43,12 +43,16 @@ export async function GetAllVerifications(req, res) {
             });
         }
 
+        const suspiciousLogins = trackSuspiciousLogins(allVerifications);
+
         res.status(HTTP_STATUS_OK).json({
             success: true,
             status: HTTP_STATUS_OK,
             message: "All Verification information fetched successfully",
-            data: allverifications
+            data: allVerifications
         });
+
+        return suspiciousLogins;
     } catch (error) {
         res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).json({
             success: false,
@@ -57,4 +61,63 @@ export async function GetAllVerifications(req, res) {
             error: error.message
         });
     }
+}
+
+export function trackSuspiciousLogins(verifications) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const failureTracker = new Map();
+    const suspiciousLogins = [];
+
+    verifications.forEach(verification => {
+        if (verification.verificationStatus === 'failure') {
+            const { matricNumber, timestamp } = verification;
+
+            if (timestamp < oneHourAgo) {
+                failureTracker.delete(matricNumber);
+            }
+
+            if (!failureTracker.has(matricNumber)) {
+                failureTracker.set(matricNumber, {
+                    failureCount: 1,
+                    firstFailureTime: timestamp
+                });
+            } else {
+                const currentAttempt = failureTracker.get(matricNumber);
+
+                if (currentAttempt.firstFailureTime >= oneHourAgo) {
+                    currentAttempt.failureCount++;
+
+                    if (currentAttempt.failureCount >= 3) {
+                        const suspiciousLogin = {
+                            matricNumber,
+                            failureCount: currentAttempt.failureCount,
+                            firstFailureTime: currentAttempt.firstFailureTime
+                        };
+
+                        if (!suspiciousLogins.some(login => login.matricNumber === matricNumber)) {
+                            suspiciousLogins.push(suspiciousLogin);
+                        }
+                    }
+                } else {
+                    currentAttempt.failureCount = 1;
+                    currentAttempt.firstFailureTime = timestamp;
+                }
+            }
+        }
+    });
+
+    return suspiciousLogins;
+}
+
+export async function GetSuspiciousLogins(req, res) {
+    const suspiciousLogins = trackSuspiciousLogins(
+        await VerificationSchema.find().sort({ timestamp: -1 }).limit(100)
+    );
+
+    res.status(HTTP_STATUS_OK).json({
+        success: true,
+        status: HTTP_STATUS_OK,
+        message: "Suspicious logins retrieved",
+        data: suspiciousLogins
+    });
 }
