@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/assets/styles/index.css">
+    <script src="/assets/scripts/verifications.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <title>Unilorin Student Verification Tracker</title>
+</head>
+
+<style>
+    tr td {
+        padding: 16px;
+    }
+</style>
+
+<body>
+    <div class="container overflow-hidden w-full flex flex-col p-4">
+        <h2 class="text-2xl font-bold mb-4">Verifications</h2>
+        <div class="my-4 flex items-center justify-between w-full">
+            <input type="text" id="searchVerification" class="px-4 py-2 border rounded"
+                placeholder="Search verifications..." />
+            <select id="rowsPerPageVerification" class="px-4 py-2 border rounded ml-4">
+                <option value="10">10</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="9999">All</option>
+            </select>
+        </div>
+        <div class="overflow-x-auto w-full">
+            <table class="min-w-max w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2">Matric Number</th>
+                        <th class="px-4 py-2">Timestamp</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2">Confidence</th>
+                        <th class="px-4 py-2">Captured Image</th>
+                        <th class="px-4 py-2">Stored Image</th>
+                    </tr>
+                </thead>
+                <tbody class="w-full overflow-x-scroll min-w-max" id="verificationBody"></tbody>
+            </table>
+        </div>
+        <div id="verificationPagination" class="my-4">
+            <button class="pagination-button px-4 py-2 mx-1" id="prevPage">Prev</button>
+            <button class="pagination-button px-4 py-2 mx-1" id="nextPage">Next</button>
+        </div>
+
+        <h2 class="text-2xl font-bold mt-8 mb-4">Suspicious Logins</h2>
+        <div class="my-4 flex items-center justify-between w-full">
+            <input type="text" id="searchSuspicious" class="px-4 py-2 border rounded"
+                placeholder="Search suspicious logins..." />
+            <select id="rowsPerPageSuspicious" class="px-4 py-2 border rounded ml-4">
+                <option value="10">10</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="9999">All</option>
+            </select>
+        </div>
+        <div class="overflow-x-auto w-full">
+            <table class="min-w-max w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2">Matric Number</th>
+                        <th class="px-4 py-2">Failure Count</th>
+                        <th class="px-4 py-2">First Failure Time</th>
+                    </tr>
+                </thead>
+                <tbody class="w-full overflow-x-scroll min-w-max" id="suspiciousBody"></tbody>
+            </table>
+        </div>
+        <div id="suspiciousPagination" class="my-4">
+            <button class="pagination-button px-4 py-2 mx-1" id="prevPage">Prev</button>
+            <button class="pagination-button px-4 py-2 mx-1" id="nextPage">Next</button>
+        </div>
+    </div>
+</body>
+
+</html>
