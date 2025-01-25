@@ -12,9 +12,12 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollToTopBtn.onclick = function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
-    const MODELS_PATH = '/assets/models';
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    const BASE_URL = isLocal ? 'http://127.0.0.1:8888' : 'https://project-facial-verification.onrender.com';
+    const MODELS_PATH = isLocal ? '/client/assets/models' : '/assets/models';
     const REQUIRED_BLINKS = 0;
-    const VERIFICATION_THRESHOLD = 0.6;
+    const VERIFICATION_THRESHOLD = 0.5;
     const RECORDING_DURATION = 5000;
 
     const video = document.getElementById('videoElement');
@@ -29,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isModelLoaded = false;
     let lastDetectedDescriptor = null;
     let stream = null;
+    let capturedImageFile = null;
 
     function formatMatricNumber(matric) {
         matric = matric.trim();
@@ -60,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function canvasToBase64(canvas) {
-        return canvas.toDataURL('image/jpeg', 0.8); 
+        return canvas.toDataURL('image/jpeg', 0.8);
     }
 
     async function initializeFaceAPI() {
@@ -111,24 +115,58 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.className = type;
     }
 
-    // Fetch user image
     async function fetchUserImage(matric) {
         try {
             const formattedMatric = formatMatricNumber(matric);
-            const imageUrl = `https://schooltry-tertiary-2.s3.eu-west-1.amazonaws.com/Unilorin/profilePictures/${formattedMatric}.jpg`;
-            // const imageUrl = `/assets/images/2052HA027.jpg`;
+            const response = await fetch(`${BASE_URL}/v1/verification/fetch-image?matric=${formattedMatric}`, {
+                method: 'POST'
+            });
+            console.log(response);
 
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
+            if (!response.ok) {
+                throw new Error("Failed to fetch image");
+            }
+
+            const blob = await response.blob();
+            const imgURL = URL.createObjectURL(blob);
 
             return new Promise((resolve, reject) => {
+                const img = new Image();
                 img.onload = () => resolve(img);
                 img.onerror = () => reject(new Error('Failed to load user image'));
-                img.src = imageUrl;
+                img.src = imgURL;
             });
         } catch (error) {
-            throw new Error(`Error fetching user image: ${error.message}`);
+            console.error(error);
+            throw new Error("Error loading image");
         }
+    }
+
+    function convertImageToBase64(imageUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d");
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const base64Image = canvas.toDataURL("image/jpeg");
+                resolve(base64Image);
+            };
+            img.onerror = reject;
+            img.src = imageUrl;
+        });
+    }
+
+    function convertFileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
     }
 
     async function detectFace(input) {
@@ -214,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const currentFrame = captureVideoFrame(video);
                         bestFrame = currentFrame;
-
+                        capturedImageFile = await canvasToBase64(bestFrame)
                         try {
                             const ear = calculateEAR(detection.landmarks);
                             console.log('Calculated EAR:', ear);
@@ -291,7 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lastDetectedDescriptor,
             storedFaceDetection.descriptor
         );
-
         const similarity = Math.max(0, 1 - distance);
 
         return {
@@ -306,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveVerificationLog(verificationData) {
         try {
-            const response = await fetch('https://project-facial-verification.onrender.com/v1/verification/record-verification', {
+            const response = await fetch(`${BASE_URL}/v1/verification/record-verification`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -344,6 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const startTime = Date.now();
         let livenessDetails = {};
         let verificationResult = {};
+        const storedImage = await fetchUserImage(matricNumber);
+        const storedImageUrl = storedImage.src;
+        const storedImageBase64 = await convertImageToBase64(storedImageUrl);
 
         try {
             await startCamera();
@@ -358,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 checkVideo();
             });
-            
+
             // console.log('Video ready:', {
             //     readyState: video.readyState,
             //     width: video.videoWidth,
@@ -386,8 +426,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lastDetectedDescriptor = livenessResult.descriptor;
 
             showStatus('Fetching stored image...', '');
-            const storedImage = await fetchUserImage(matricNumber);
-            const storedImageUrl = storedImage.src;
 
             showStatus('Verifying face match...', '');
             verificationResult = await verifyFaceMatch(storedImage);
@@ -398,8 +436,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 confidenceScore: verificationResult.confidence,
                 similarityScore: verificationResult.details.similarityScore,
                 livenessDetails,
-                storedImageUrl: storedImageUrl,
-                capturedImageBase64: capturedImageBase64,
+                storedImageUrl: storedImageBase64,
+                capturedImageBase64: capturedImageFile,
                 processingTime: Date.now() - startTime,
                 userAgent: navigator.userAgent,
                 errorMessage: verificationResult.matched ? null : 'Face mismatch detected'
@@ -423,8 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 confidenceScore: 0,
                 similarityScore: 0,
                 livenessDetails,
-                storedImageUrl: null,
-                capturedImageBase64: null,
+                storedImageUrl: storedImageBase64,
+                capturedImageBase64: capturedImageFile,
                 processingTime: Date.now() - startTime,
                 userAgent: navigator.userAgent,
                 errorMessage: error.message
