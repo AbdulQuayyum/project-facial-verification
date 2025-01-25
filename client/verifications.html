@@ -25,15 +25,20 @@
 <body>
     <div class="container overflow-hidden w-full flex flex-col p-4">
         <h2 class="text-2xl font-bold mb-4">Verifications</h2>
-        <div class="my-4 flex items-center justify-between w-full">
-            <input type="text" id="searchVerification" class="px-4 py-2 border rounded"
-                placeholder="Search verifications..." />
-            <select id="rowsPerPageVerification" class="px-4 py-2 border rounded ml-4">
-                <option value="10">10</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="9999">All</option>
-            </select>
+        <div
+            class="my-4 flex flex-col md:flex-row gap-6 items-start md:items-center justify-start md:justify-between w-full">
+            <div class="flex w-full justify-start">
+                <input type="text" id="searchVerification" class="px-4 py-4 w-full md:max-w-[500px] border rounded-lg"
+                    placeholder="Search verifications..." />
+            </div>
+            <div class="flex w-full justify-end">
+                <select id="rowsPerPageVerification" class="px-4 py-4 border rounded-lg">
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="9999">All</option>
+                </select>
+            </div>
         </div>
         <div class="overflow-x-auto w-full">
             <table class="min-w-max w-full">
@@ -47,8 +52,12 @@
                         <th class="px-4 py-2">Stored Image</th>
                     </tr>
                 </thead>
-                <tbody class="w-full overflow-x-scroll min-w-max" id="verificationBody"></tbody>
+                <tbody class="w-full overflow-x-scroll min-w-max" id="verificationBody">
+                </tbody>
             </table>
+            <div id="loader" class="hidden flex justify-center items-center">
+                <div class="loader-spinner"></div>
+            </div>
         </div>
         <div id="verificationPagination" class="my-4">
             <button class="pagination-button px-4 py-2 mx-1" id="prevPage">Prev</button>
@@ -56,15 +65,20 @@
         </div>
 
         <h2 class="text-2xl font-bold mt-8 mb-4">Suspicious Logins</h2>
-        <div class="my-4 flex items-center justify-between w-full">
-            <input type="text" id="searchSuspicious" class="px-4 py-2 border rounded"
-                placeholder="Search suspicious logins..." />
-            <select id="rowsPerPageSuspicious" class="px-4 py-2 border rounded ml-4">
-                <option value="10">10</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="9999">All</option>
-            </select>
+        <div
+            class="my-4 flex flex-col md:flex-row gap-6 items-start md:items-center justify-start md:justify-between w-full">
+            <div class="flex w-full justify-start">
+                <input type="text" id="searchSuspicious" class="px-4 py-4 w-full md:max-w-[500px] border rounded-lg"
+                    placeholder="Search suspicious logins..." />
+            </div>
+            <div class="flex w-full justify-end">
+                <select id="rowsPerPageSuspicious" class="px-4 py-4 border rounded-lg">
+                    <option value="10">10</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="9999">All</option>
+                </select>
+            </div>
         </div>
         <div class="overflow-x-auto w-full">
             <table class="min-w-max w-full">
@@ -75,8 +89,12 @@
                         <th class="px-4 py-2">First Failure Time</th>
                     </tr>
                 </thead>
-                <tbody class="w-full overflow-x-scroll min-w-max" id="suspiciousBody"></tbody>
+                <tbody class="w-full overflow-x-scroll min-w-max" id="suspiciousBody">
+                </tbody>
             </table>
+            <div id="loader02" class="hidden flex justify-center items-center">
+                <div class="loader-spinner"></div>
+            </div>
         </div>
         <div id="suspiciousPagination" class="my-4">
             <button class="pagination-button px-4 py-2 mx-1" id="prevPage">Prev</button>

@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowsPerPageSelectSuspicious = document.getElementById('rowsPerPageSuspicious');
 
     async function fetchVerifications() {
+        document.getElementById('loader').classList.remove('hidden');
         try {
             const response = await fetch(`${BASE_URL}/v1/user/verifications`, {
                 method: 'POST',
@@ -35,10 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
             updateVerificationTable();
         } catch (error) {
             console.error('Failed to fetch verifications', error);
+        } finally {
+            document.getElementById('loader').classList.add('hidden');
         }
     }
 
     async function fetchSuspiciousLogins() {
+        document.getElementById('loader02').classList.remove('hidden');
         try {
             const response = await fetch(`${BASE_URL}/v1/user/suspicious-logins`, {
                 method: 'POST',
@@ -52,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateSuspiciousLoginsTable();
         } catch (error) {
             console.error('Failed to fetch suspicious logins', error);
+        } finally {
+            document.getElementById('loader02').classList.add('hidden');
         }
     }
 
@@ -65,6 +71,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 verification.verificationStatus.toLowerCase().includes(searchQuery)
             );
         });
+
+        if (filteredVerifications.length === 0) {
+            const row = tbody.insertRow();
+            const cell = row.insertCell(0);
+            cell.colSpan = 6;
+            cell.textContent = 'No verification records found';
+            cell.classList.add('text-center', 'text-gray-500', 'py-4');
+            return;
+        }
 
         const paginatedVerifications = filteredVerifications.slice(
             (verificationPage - 1) * verificationRowsPerPage,
@@ -121,6 +136,15 @@ document.addEventListener('DOMContentLoaded', () => {
             (suspiciousLoginPage - 1) * suspiciousLoginRowsPerPage,
             suspiciousLoginPage * suspiciousLoginRowsPerPage
         );
+
+        if (filteredLogins.length === 0) {
+            const row = tbody.insertRow();
+            const cell = row.insertCell(0);
+            cell.colSpan = 3;
+            cell.textContent = 'No suspicious login records found';
+            cell.classList.add('text-center', 'text-gray-500', 'py-4');
+            return;
+        }
 
         paginatedLogins.forEach(login => {
             const row = tbody.insertRow();
