@@ -479,12 +479,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     startButton.addEventListener('click', startVerification);
-    retryButton.addEventListener('click', () => {
+    retryButton.addEventListener('click', async () => {
         progressBar.style.width = '0%';
         showStatus('', '');
         retryButton.disabled = true;
         lastDetectedDescriptor = null;
+        matricInput.value = '';
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        try {
+            await startCamera();
+            video.style.display = 'block';
+            canvas.style.position = "absolute";
+            await video.play();
+        } catch (error) {
+            showStatus('Error restarting camera: ' + error.message, 'error');
+        }
     });
-
     initializeFaceAPI()
 });
