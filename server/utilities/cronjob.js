@@ -12,3 +12,13 @@ cron.schedule('*/5 * * * *', async () => {
         await UptimeSchema.create({ timestamp: new Date(), status: 'down' });
     }
 });
+
+cron.schedule('*/5 * * * *', async () => {
+    try {
+        const response = await axios.get("https://get-unilorin-db.onrender.com/");
+        const status = response.status === 200 ? 'up' : 'down';
+        console.log(`server is ${status}`);
+    } catch (error) {
+        console.log(`server is DOWN: ${error}`);
+    }
+})
