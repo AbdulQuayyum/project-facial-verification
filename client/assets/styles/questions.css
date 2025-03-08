@@ -1,0 +1,32 @@
+.quiz-container {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px 5px rgba(100, 100, 100, 0.1);
+    overflow: hidden;
+    width: 600px;
+    max-width: 100%;
+}
+
+.quiz-header {
+    padding: 4rem;
+}
+
+h2 {
+    padding: 1rem;
+    text-align: center;
+    margin: 0;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+ul li {
+    font-size: 1rem;
+    margin: 1rem 0;
+}
+
+ul li label {
+    cursor: pointer;
+}

@@ -4,12 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Get Unilorin Student Profile Pictures</title>
+    <title>Facial Verification of Students (University of Ilorin as a Case Study)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
         rel="stylesheet">
+    <link rel="shortcut icon" href="./logo.jpeg" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/assets/scripts/main.js"></script>
     <script src="/assets/scripts/face-api.min.js"></script>
@@ -17,12 +18,14 @@
 </head>
 
 <body>
-    <div class="container ">
-        <h1 class=" text-[#00044b] text-2xl text-center">Facial Verification of Students (University of Ilorin as a Case Study) </h1>
+    <div class="container flex items-center justify-center h-full min-h-screen">
+        <h1 class=" text-[#00044b] text-2xl text-center">Facial Verification of Students (University of Ilorin as a Case
+            Study) </h1>
         <div class="flex justify-center items-center w-full">
             <div class="flex items-start justify-start w-full  md:max-w-[740px] gap-y-2 flex-col">
                 <label for="matricNumber">Enter Matric Number:</label>
-                <input class="flex px-4 rounded-lg h-[50px] border border-[#ccc] w-full" type="text" id="matricNumber" placeholder="Format: XX/XXXXXXXX (e.g., 20/52HA001)">
+                <input class="flex px-4 rounded-lg h-[50px] border border-[#ccc] w-full" type="text" id="matricNumber"
+                    placeholder="Format: XX/XXXXXXXX (e.g., 20/52HA001)">
             </div>
         </div>
 
@@ -36,8 +39,12 @@
         </div>
 
         <div class="button-container">
-            <button id="startButton" class="bg-[#00044b] flex justify-center items-center h-[50px] rounded-lg text-white px-12">Start Verification</button>
-            <button id="retryButton" class="bg-[#ccc] flex justify-center items-center h-[50px] rounded-lg text-[#00044b] px-12" disabled>Retry</button>
+            <button id="startButton"
+                class="bg-[#00044b] flex justify-center items-center h-[50px] rounded-lg text-white px-12">Start
+                Verification</button>
+            <button id="retryButton"
+                class="bg-[#ccc] flex justify-center items-center h-[50px] rounded-lg text-[#00044b] px-12"
+                disabled>Retry</button>
         </div>
 
         <div id="statusMessage"></div>
