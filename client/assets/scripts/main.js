@@ -456,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionStorage.setItem('matricNumber', formatMatricNumber(matricNumber));
 
                 setTimeout(() => {
-                    window.location.href = '/questions';
+                    window.location.href = isLocal ? '/client/questions.html' : 'questions.html';
                 }, 2000);
             } else {
                 showStatus('Verification failed - Face mismatch detected', 'error');

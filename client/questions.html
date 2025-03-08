@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facial Verification of Students Questions (University of Ilorin as a Case Study)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet">
+    <link rel="shortcut icon" href="./logo.jpeg" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/client/assets/scripts/questions.js"></script>
+    <script src="/client/assets/scripts/protected.js"></script>
+    <link rel="stylesheet" href="/client/assets/styles/index.css">
+    <link rel="stylesheet" href="/client/assets/styles/questions.css">
+</head>
+
+<body>
+    <div class="container flex items-center justify-center h-full min-h-screen">
+        <div class="matric-number">
+            <p class="font-[800] text-4xl" id="matricNumberDisplay"></p>
+        </div>
+        <div class="quiz-container" id="quiz">
+            <div class="question-counter">
+                <p id="questionCounter"></p>
+            </div>
+            <div class="quiz-header">
+                <h2 class="font-[500] text-xl" id="question">Question-text</h2>
+                <ul>
+                    <li>
+                        <input type="radio" id="a" name="answer" class="answer h-3 w-3 accent-[#00044b]" />
+                        <label id="a_text" for="a">Question</label>
+                    </li>
+                    <li>
+                        <input type="radio" id="b" name="answer" class="answer h-3 w-3 accent-[#00044b]" />
+                        <label id="b_text" for="b">Question</label>
+                    </li>
+                    <li>
+                        <input type="radio" id="c" name="answer" class="answer h-3 w-3 accent-[#00044b]" />
+                        <label id="c_text" for="c">Question</label>
+                    </li>
+                    <li>
+                        <input type="radio" id="d" name="answer" class="answer h-3 w-3 accent-[#00044b]" />
+                        <label id="d_text" for="d">Question</label>
+                    </li>
+                </ul>
+            </div>
+            <div class="flex items-center gap-6">
+                <button class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12" id="prev">Previous</button>
+                <button class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12" id="next">Next</button>
+                <button class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12" id="submit">Submit</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
