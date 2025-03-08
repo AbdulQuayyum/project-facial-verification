@@ -102,14 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentQuiz = 0;
     let score = 0;
 
-    // Retrieve matric number from sessionStorage and format it
     const matricNumber = sessionStorage.getItem('matricNumber');
     if (matricNumber) {
         const formattedMatricNumber = matricNumber.slice(0, 2) + "/" + matricNumber.slice(2);
         matricNumberDisplay.innerText = `Matric Number: ${formattedMatricNumber}`;
     }
 
-    // Load the quiz
     loadQuiz();
 
     function loadQuiz() {
@@ -117,17 +115,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentQuizData = quizData[currentQuiz];
 
-        // Update question counter
         questionCounter.innerText = `Question ${currentQuiz + 1} of ${quizData.length}`;
 
-        // Update question and answers
         questionEL.innerText = currentQuizData.question;
         a_text.innerText = currentQuizData.a;
         b_text.innerText = currentQuizData.b;
         c_text.innerText = currentQuizData.c;
         d_text.innerText = currentQuizData.d;
 
-        // Show/hide navigation buttons
         if (currentQuiz === 0) {
             prevBtn.style.display = 'none';
         } else {
@@ -161,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Previous button event listener
     prevBtn.addEventListener("click", () => {
         if (currentQuiz > 0) {
             currentQuiz--;
@@ -169,19 +163,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Next button event listener
     nextBtn.addEventListener("click", () => {
         const answer = getSelected();
 
-     
-            if (answer === quizData[currentQuiz].correct) {
-                score++;
-            }
-            currentQuiz++;
-            loadQuiz();
+
+        if (answer === quizData[currentQuiz].correct) {
+            score++;
+        }
+        currentQuiz++;
+        loadQuiz();
     });
 
-    // Submit button event listener
     submitBtn.addEventListener("click", () => {
         const answer = getSelected();
 
@@ -189,10 +181,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (answer === quizData[currentQuiz].correct) {
                 score++;
             }
+
             quiz.innerHTML = `<h2>You've answered ${score}/${quizData.length} questions correctly.</h2> 
             <button onclick="location.reload()">Reload</button>`;
+
+            sessionStorage.clear();
+
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            window.location.href = isLocal ? '/client/index.html' : '/';
         } else {
-            alert("Please select an answer before submitting.");
+            alert("Please select all answers before submitting.");
         }
     });
 });
