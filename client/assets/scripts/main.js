@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const BASE_URL = isLocal ? 'http://127.0.0.1:8888' : 'https://project-facial-verification.onrender.com';
     const MODELS_PATH = isLocal ? '/client/assets/models' : '/assets/models';
+    const JSON_20_PATH = isLocal ? '/client/assets/json/20.json' : '/assets/json/20.json'
+    const JSON_21_PATH = isLocal ? '/client/assets/json/21.json' : '/assets/json/21.json'
     const REQUIRED_BLINKS = 0;
     const VERIFICATION_THRESHOLD = 0.5;
     const RECORDING_DURATION = 5000;
@@ -117,29 +119,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchUserImage(matric) {
         try {
-            const formattedMatric = formatMatricNumber(matric);
-            // const response = await fetch(`${BASE_URL}/v1/verification/fetch-image?matric=${formattedMatric}`, {
-            //     method: 'POST'
-            // });
-            const response = await fetch("/client/assets/images/2052HA027.jpg");
-            console.log(response);
+            const jsonPath = matric.startsWith('20') ? JSON_20_PATH : matric.startsWith('21') ? JSON_21_PATH : null;
 
-            if (!response.ok) {
-                throw new Error("Failed to fetch image");
+            if (!jsonPath) {
+                throw new Error("Invalid matric number format");
             }
 
-            const blob = await response.blob();
-            const imgURL = URL.createObjectURL(blob);
+            const response = await fetch(jsonPath);
+            if (!response.ok) {
+                throw new Error("Failed to fetch student data");
+            }
+
+            const students = await response.json();
+
+            const student = students.find(s => s.student_number === matric);
+
+            if (!student || !student.image_base64) {
+                throw new Error("Student image not found");
+            }
 
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => resolve(img);
                 img.onerror = () => reject(new Error('Failed to load user image'));
-                img.src = imgURL;
+                img.src = student.image_base64;
             });
         } catch (error) {
             console.error(error);
-            throw new Error("Error loading image");
+            throw new Error("Error loading image: " + error.message);
         }
     }
 
