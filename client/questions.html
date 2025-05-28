@@ -5,31 +5,212 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Facial Verification (University of Ilorin Case Study) || Questions Page</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
-        rel="stylesheet">
-    <link rel="shortcut icon" href="./logo.jpeg" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- <script src="/client/assets/scripts/questions.js"></script>
-    <script src="/client/assets/scripts/protected.js"></script>
-    <link rel="stylesheet" href="/client/assets/styles/index.css">
-    <link rel="stylesheet" href="/client/assets/styles/questions.css"> -->
-    <script src="/assets/scripts/questions.js"></script>
-    <script src="/assets/scripts/protected.js"></script>
-    <link rel="stylesheet" href="/assets/styles/index.css">
-    <link rel="stylesheet" href="/assets/styles/questions.css">
+    <style>
+        .quiz-container {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px 5px rgba(100, 100, 100, 0.1);
+            overflow: hidden;
+            width: 600px;
+            padding: 24px;
+            max-width: 100%;
+        }
+
+        .quiz-header {
+            padding: 4rem;
+        }
+
+        h2 {
+            padding: 1rem;
+            text-align: center;
+            margin: 0;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        ul li {
+            font-size: 1rem;
+            margin: 1rem 0;
+        }
+
+        ul li label {
+            cursor: pointer;
+        }
+
+        /* Toast Notification Styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            margin-bottom: 16px;
+            padding: 16px 20px;
+            transform: translateX(400px);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.35);
+            border-left: 4px solid;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 320px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left-color: #10b981;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        }
+
+        .toast.error {
+            border-left-color: #ef4444;
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        }
+
+        .toast.warning {
+            border-left-color: #f59e0b;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        }
+
+        .toast.info {
+            border-left-color: #3b82f6;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+        }
+
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            border-radius: 0 0 12px 12px;
+            transition: width linear;
+        }
+
+        .toast.success .toast-progress {
+            background: #10b981;
+        }
+
+        .toast.error .toast-progress {
+            background: #ef4444;
+        }
+
+        .toast.warning .toast-progress {
+            background: #f59e0b;
+        }
+
+        .toast.info .toast-progress {
+            background: #3b82f6;
+        }
+
+        /* Animation for toast entrance */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 640px) {
+            .toast-container {
+                left: 20px;
+                right: 20px;
+                max-width: none;
+            }
+
+            .toast {
+                min-width: auto;
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 
 <body>
-    <div class="container flex items-center justify-center h-full min-h-screen">
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container flex flex-col gap-10 items-center justify-center h-full min-h-screen">
         <div class="matric-number">
             <p class="font-[800] text-4xl" id="matricNumberDisplay"></p>
         </div>
         <div class="quiz-container" id="quiz">
-            <div class="question-counter">
-                <p id="questionCounter"></p>
+            <div class="flex items-center w-full justify-center ">
+                <div class="question-counter">
+                    <p id="questionCounter" class="text-xl font-semibold"></p>
+                </div>
             </div>
             <div class="quiz-header">
                 <h2 class="font-[500] text-xl" id="question">Question-text</h2>
@@ -54,17 +235,388 @@
             </div>
             <div class="flex items-center gap-6">
                 <button
-                    class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12"
+                    class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12 hover:bg-[#000366] transition-colors"
                     id="prev">Previous</button>
                 <button
-                    class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12"
+                    class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12 hover:bg-[#000366] transition-colors"
                     id="next">Next</button>
                 <button
-                    class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12"
+                    class="bg-[#00044b] flex justify-center w-full items-center h-[50px] rounded-lg text-white px-12 hover:bg-[#000366] transition-colors"
                     id="submit">Submit</button>
             </div>
         </div>
     </div>
+
+    <script>
+        const quizData = [
+            {
+                question: "Which of the following is a fundamental principle of cybersecurity?",
+                a: "Confidentiality",
+                b: "Scalability",
+                c: "Accessibility",
+                d: "Redundancy",
+                correct: "a",
+            },
+            {
+                question: "What is the primary function of a firewall in network security?",
+                a: "Data encryption",
+                b: "Traffic filtering",
+                c: "File compression",
+                d: "Load balancing",
+                correct: "b",
+            },
+            {
+                question: "In cryptography, what does RSA stand for?",
+                a: "Randomized Security Algorithm",
+                b: "Rivest-Shamir-Adleman",
+                c: "Reliable Secure Authentication",
+                d: "Recursive Symmetric Architecture",
+                correct: "b",
+            },
+            {
+                question: "Which of the following best describes a Denial-of-Service (DoS) attack?",
+                a: "Intercepting communication between two parties",
+                b: "Overloading a system to make it unavailable",
+                c: "Gaining unauthorized access to a network",
+                d: "Encrypting data without permission",
+                correct: "b",
+            },
+            {
+                question: "Which data structure uses the Last-In-First-Out (LIFO) principle?",
+                a: "Queue",
+                b: "Stack",
+                c: "Linked List",
+                d: "Heap",
+                correct: "b",
+            },
+            {
+                question: "Which algorithm is used to find the shortest path in a weighted graph?",
+                a: "Depth-First Search",
+                b: "Breadth-First Search",
+                c: "Dijkstra's Algorithm",
+                d: "Kruskal's Algorithm",
+                correct: "c",
+            },
+            {
+                question: "What does ACID stand for in database transactions?",
+                a: "Atomicity, Consistency, Isolation, Durability",
+                b: "Access, Control, Integrity, Distribution",
+                c: "Authentication, Confidentiality, Integrity, Deployment",
+                d: "Allocation, Configuration, Isolation, Debugging",
+                correct: "a",
+            },
+            {
+                question: "Which of the following is an example of symmetric key encryption?",
+                a: "RSA",
+                b: "DES",
+                c: "ECC",
+                d: "Diffie-Hellman",
+                correct: "b",
+            },
+            {
+                question: "In software development, what does the acronym 'CI/CD' stand for?",
+                a: "Continuous Integration/Continuous Deployment",
+                b: "Code Implementation/Code Debugging",
+                c: "Cloud Infrastructure/Cloud Development",
+                d: "Cybersecurity Integration/Cybersecurity Defense",
+                correct: "a",
+            },
+            {
+                question: "Which of the following best describes a hash function?",
+                a: "A function that encrypts data using a public key",
+                b: "A one-way function that maps data to a fixed-size output",
+                c: "A function that compresses files for storage",
+                d: "A two-way function used for data decryption",
+                correct: "b",
+            }
+        ];
+
+        class ToastManager {
+            constructor() {
+                this.container = document.getElementById('toastContainer');
+                this.toasts = [];
+            }
+
+            show(message, type = 'info', title = '', duration = 5000) {
+                const toast = this.createToast(message, type, title, duration);
+                this.container.appendChild(toast);
+                this.toasts.push(toast);
+
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 100);
+
+                const autoRemoveTimer = setTimeout(() => {
+                    this.remove(toast);
+                }, duration);
+
+                toast.autoRemoveTimer = autoRemoveTimer;
+
+                return toast;
+            }
+
+            createToast(message, type, title, duration) {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+
+                const icons = {
+                    success: `<svg class="toast-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" style="color: #10b981;"/>
+                    </svg>`,
+                    error: `<svg class="toast-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" style="color: #ef4444;"/>
+                    </svg>`,
+                    warning: `<svg class="toast-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" style="color: #f59e0b;"/>
+                    </svg>`,
+                    info: `<svg class="toast-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" style="color: #3b82f6;"/>
+                    </svg>`
+                };
+
+                toast.innerHTML = `
+                    ${icons[type] || icons.info}
+                    <div class="toast-content">
+                        ${title ? `<div class="toast-title">${title}</div>` : ''}
+                        <div class="toast-message">${message}</div>
+                    </div>
+                    <button class="toast-close" onclick="toastManager.remove(this.parentElement)">&times;</button>
+                    <div class="toast-progress" style="width: 100%; animation: shrink ${duration}ms linear;"></div>
+                `;
+
+                if (!document.querySelector('#toast-progress-animation')) {
+                    const style = document.createElement('style');
+                    style.id = 'toast-progress-animation';
+                    style.textContent = `
+                        @keyframes shrink {
+                            from { width: 100%; }
+                            to { width: 0%; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
+                return toast;
+            }
+
+            remove(toast) {
+                if (toast.autoRemoveTimer) {
+                    clearTimeout(toast.autoRemoveTimer);
+                }
+
+                toast.style.animation = 'slideOutRight 0.3s ease-in-out forwards';
+
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.parentElement.removeChild(toast);
+                    }
+                    this.toasts = this.toasts.filter(t => t !== toast);
+                }, 300);
+            }
+
+            success(message, title = 'Success!') {
+                return this.show(message, 'success', title);
+            }
+
+            error(message, title = 'Error!') {
+                return this.show(message, 'error', title);
+            }
+
+            warning(message, title = 'Warning!') {
+                return this.show(message, 'warning', title);
+            }
+
+            info(message, title = 'Info') {
+                return this.show(message, 'info', title);
+            }
+        }
+
+        const toastManager = new ToastManager();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const quiz = document.getElementById("quiz");
+            const answerELs = document.querySelectorAll(".answer");
+            const questionEL = document.getElementById("question");
+
+            const a_text = document.getElementById("a_text");
+            const b_text = document.getElementById("b_text");
+            const c_text = document.getElementById("c_text");
+            const d_text = document.getElementById("d_text");
+
+            const prevBtn = document.getElementById("prev");
+            const nextBtn = document.getElementById("next");
+            const submitBtn = document.getElementById("submit");
+
+            const questionCounter = document.getElementById("questionCounter");
+            const matricNumberDisplay = document.getElementById("matricNumberDisplay");
+
+            let currentQuiz = 0;
+            let score = 0;
+            let userAnswers = new Array(quizData.length).fill(null);
+
+            const matricNumber = sessionStorage.getItem('matricNumber') || 'UNILORIN/CSC/001';
+            matricNumberDisplay.innerText = `Matric Number: ${matricNumber}`;
+
+            setTimeout(() => {
+                toastManager.info(`Welcome to the quiz, ${matricNumber}!`, 'Quiz Started');
+            }, 500);
+
+            loadQuiz();
+
+            function loadQuiz() {
+                deselectAnswers();
+
+                const currentQuizData = quizData[currentQuiz];
+
+                questionCounter.innerText = `Question ${currentQuiz + 1} of ${quizData.length}`;
+
+                questionEL.innerText = currentQuizData.question;
+                a_text.innerText = currentQuizData.a;
+                b_text.innerText = currentQuizData.b;
+                c_text.innerText = currentQuizData.c;
+                d_text.innerText = currentQuizData.d;
+
+                if (userAnswers[currentQuiz]) {
+                    document.getElementById(userAnswers[currentQuiz]).checked = true;
+                }
+
+                if (currentQuiz === 0) {
+                    prevBtn.style.display = 'none';
+                } else {
+                    prevBtn.style.display = 'inline-block';
+                }
+
+                if (currentQuiz === quizData.length - 1) {
+                    nextBtn.style.display = 'none';
+                    submitBtn.style.display = 'inline-block';
+                } else {
+                    nextBtn.style.display = 'inline-block';
+                    submitBtn.style.display = 'none';
+                }
+            }
+
+            function getSelected() {
+                let answer = undefined;
+
+                answerELs.forEach((answerEL) => {
+                    if (answerEL.checked) {
+                        answer = answerEL.id;
+                    }
+                });
+
+                return answer;
+            }
+
+            function deselectAnswers() {
+                answerELs.forEach((answerEL) => {
+                    answerEL.checked = false;
+                });
+            }
+
+            prevBtn.addEventListener("click", () => {
+                if (currentQuiz > 0) {
+                    const answer = getSelected();
+                    if (answer) {
+                        userAnswers[currentQuiz] = answer;
+                    }
+                    currentQuiz--;
+                    loadQuiz();
+                }
+            });
+
+            nextBtn.addEventListener("click", () => {
+                const answer = getSelected();
+
+                if (!answer) {
+                    toastManager.warning(
+                        'Please select an answer before proceeding to the next question.',
+                        'Answer Required'
+                    );
+                    return;
+                }
+
+                userAnswers[currentQuiz] = answer;
+                if (answer === quizData[currentQuiz].correct) {
+                    score++;
+                }
+
+                currentQuiz++;
+                loadQuiz();
+
+                toastManager.info(
+                    `Question ${currentQuiz} completed. ${quizData.length - currentQuiz} questions remaining.`,
+                    'Progress Update'
+                );
+            });
+
+            submitBtn.addEventListener("click", () => {
+                const answer = getSelected();
+
+                if (!answer) {
+                    toastManager.error(
+                        'Please select an answer for the final question before submitting.',
+                        'Answer Required'
+                    );
+                    return;
+                }
+
+                const unansweredQuestions = [];
+                for (let i = 0; i < quizData.length; i++) {
+                    if (!userAnswers[i] && i !== currentQuiz) {
+                        unansweredQuestions.push(i + 1);
+                    }
+                }
+
+                if (unansweredQuestions.length > 0) {
+                    toastManager.warning(
+                        `You have ${unansweredQuestions.length} unanswered question(s). Questions: ${unansweredQuestions.join(', ')}`,
+                        'Incomplete Quiz'
+                    );
+                    return;
+                }
+
+                userAnswers[currentQuiz] = answer;
+                if (answer === quizData[currentQuiz].correct) {
+                    score++;
+                }
+
+                const percentage = Math.round((score / quizData.length) * 100);
+                let resultType = 'success';
+                let resultTitle = 'Excellent!';
+                let resultMessage = `Quiz completed! You scored ${score}/${quizData.length} (${percentage}%)`;
+
+                if (percentage < 50) {
+                    resultType = 'error';
+                    resultTitle = 'Needs Improvement';
+                } else if (percentage < 75) {
+                    resultType = 'warning';
+                    resultTitle = 'Good Job!';
+                }
+
+                toastManager.show(resultMessage, resultType, resultTitle, 8000);
+
+                quiz.innerHTML = `
+                    <div class="text-center">
+                        <h2 class="text-2xl font-bold mb-4">Quiz Completed!</h2>
+                        <div class="bg-gray-100 rounded-lg p-6 mb-6">
+                            <p class="text-lg mb-2">Your Score: <span class="font-bold text-[#00044b]">${score}/${quizData.length}</span></p>
+                            <p class="text-sm text-gray-600">Percentage: ${percentage}%</p>
+                        </div>
+                        <button onclick="window.location.href("index.html")" class="bg-[#00044b] text-white px-6 py-3 rounded-lg hover:bg-[#000366] transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                `;
+
+                sessionStorage.clear();
+
+                setTimeout(() => {
+                    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    window.location.href = isLocal ? '/client/index.html' : '/';
+                }, 10000);
+            });
+        });
+    </script>
 </body>
 
 </html>
