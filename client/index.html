@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
         rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link rel="shortcut icon" href="./logo.jpeg" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- <script src="/client/assets/scripts/main.js"></script>
@@ -21,43 +22,61 @@
 </head>
 
 <body>
-    <div class="container flex items-center justify-center h-full min-h-screen">
-        <h1 class="text-[#00044b] text-2xl text-center">
-            Student Facial Verification (University of Ilorin Case Study)
-        </h1>
-        <span class="text-sm text-center font-[300]">
-            Currently available for 400L and Non-DE 300L Computer Science students due to limited database coverage.
-        </span>
-        <div class="flex justify-center items-center w-full">
-            <div class="flex items-start justify-start w-full  md:max-w-[740px] gap-y-2 flex-col">
-                <label for="matricNumber">Enter Matric Number:</label>
-                <input class="flex px-4 rounded-lg h-[50px] border border-[#ccc] w-full" type="text" id="matricNumber"
-                    placeholder="Format: XX/XXXXXXXX (e.g., 20/52HA001)">
+    <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="glass-card p-8 w-full max-w-2xl slide-in">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-black mb-4">
+                    Student Facial Verification
+                </h1>
+                <p class="text-lg text-black/80 mb-2">University of Ilorin Case Study</p>
+                <p class="text-sm text-black/60">
+                    Currently available for 400L and Non-DE 300L Computer Science students
+                </p>
+            </div>
+
+            <div class="space-y-6">
+                <div id="statusMessage" class="status-message" style="display: none;"></div>
+                <div class="text-center">
+                    <label for="matricNumber" class="block text-black font-medium mb-3">
+                        Enter Matric Number:
+                    </label>
+                    <input class="input-field" type="text" id="matricNumber"
+                        placeholder="Format: XX/XXXXXXXX (e.g., 20/52HA001)">
+                </div>
+
+                <div class="flex justify-center">
+                    <div class="video-container pulse-animation" id="videoContainer" style="display: none;">
+                        <div class="progress-circle" id="progressCircle"></div>
+                        <video id="videoElement" autoplay playsinline muted></video>
+                        <canvas id="faceCanvas"></canvas>
+                        <div class="direction-indicator" id="directionIndicator" style="display: none;">
+                            👀
+                        </div>
+                    </div>
+                </div>
+
+                <div class="liveness-steps" id="livenessSteps" style="display: none;">
+                    <div class="step-indicator" data-direction="center">👤</div>
+                    <div class="step-indicator" data-direction="left">👈</div>
+                    <div class="step-indicator" data-direction="right">👉</div>
+                    <div class="step-indicator" data-direction="up">👆</div>
+                </div>
+
+                <div class="flex justify-center gap-4">
+                    <button id="startButton" class="btn-primary">
+                        Start Verification
+                    </button>
+                    <button id="retryButton" class="btn-primary" style="display: none;">
+                        Retry
+                    </button>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="video-container">
-            <video id="videoElement" autoplay playsinline></video>
-            <canvas id="faceCanvas"></canvas>
-        </div>
-
-        <div class="progress-bar  md:max-w-[740px]">
-            <div id="progressBar" class="progress "></div>
-        </div>
-
-        <div class="button-container">
-            <button id="startButton"
-                class="bg-[#00044b] flex justify-center items-center h-[50px] rounded-lg text-white px-12">Start
-                Verification</button>
-            <button id="retryButton"
-                class="bg-[#ccc] flex justify-center items-center h-[50px] rounded-lg text-[#00044b] px-12"
-                disabled>Retry</button>
-        </div>
-
-        <div id="statusMessage"></div>
-        <div id="loadingMessage" class="loading" style="display: none">
-            Loading face detection models...
-        </div>
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <div id="loadingText">Loading face detection models...</div>
     </div>
     <button id="scrollToTopBtn">
         ↑

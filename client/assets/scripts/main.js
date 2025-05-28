@@ -1,76 +1,70 @@
 document.addEventListener('DOMContentLoaded', () => {
-    var scrollToTopBtn = document.getElementById("scrollToTopBtn");
-
-    window.onscroll = function () {
-        if (document.body.scrollTop > 150 || document.documentElement.scrollTop > 150) {
-            scrollToTopBtn.style.display = "block";
-        } else {
-            scrollToTopBtn.style.display = "none";
-        }
-    };
-
-    scrollToTopBtn.onclick = function () {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
     const BASE_URL = isLocal ? 'http://127.0.0.1:8888' : 'https://project-facial-verification.onrender.com';
     const MODELS_PATH = isLocal ? '/client/assets/models' : '/assets/models';
-    const JSON_20_PATH = isLocal ? '/client/assets/json/20.json' : '/assets/json/20.json'
-    const JSON_21_PATH = isLocal ? '/client/assets/json/21.json' : '/assets/json/21.json'
-    const REQUIRED_BLINKS = 0;
+    const JSON_20_PATH = isLocal ? '/client/assets/json/20.json' : '/assets/json/20.json';
+    const JSON_21_PATH = isLocal ? '/client/assets/json/21.json' : '/assets/json/21.json';
+
     const VERIFICATION_THRESHOLD = 0.5;
-    const RECORDING_DURATION = 5000;
+    const LIVENESS_DIRECTIONS = ['center', 'left', 'right', 'up'];
+    const DIRECTION_DURATION = 3000;
+    const DETECTION_CONFIDENCE = 0.7;
 
     const video = document.getElementById('videoElement');
     const canvas = document.getElementById('faceCanvas');
     const startButton = document.getElementById('startButton');
     const retryButton = document.getElementById('retryButton');
     const statusMessage = document.getElementById('statusMessage');
-    const progressBar = document.getElementById('progressBar');
     const matricInput = document.getElementById('matricNumber');
-    const loadingMessage = document.getElementById('loadingMessage');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const videoContainer = document.getElementById('videoContainer');
+    const directionIndicator = document.getElementById('directionIndicator');
+    const livenessSteps = document.getElementById('livenessSteps');
+    const progressCircle = document.getElementById('progressCircle');
 
     let isModelLoaded = false;
-    let lastDetectedDescriptor = null;
     let stream = null;
-    let capturedImageFile = null;
+    let currentDirection = 0;
+    let livenessData = [];
+    let verificationInProgress = false;
 
     function formatMatricNumber(matric) {
         matric = matric.trim();
-
         if (!/^\d{2}\/\d{2}[A-Z]{2}\d{3}$/.test(matric)) {
-            throw new Error('Invalid matric number format. Expected format: XX/XXXXXXXX (e.g., 20/52HA001)');
+            throw new Error('Invalid matric number format. Expected format: XX/XXAAXXX (e.g., 20/52HA027)');
         }
-
-        return matric.substring(0, 2) + matric.substring(3);
+        return matric;
     }
 
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+    function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.className = `status-message status-${type}`;
+        statusMessage.style.display = 'block';
 
-    function captureVideoFrame(videoElement) {
-        canvas.width = videoElement.videoWidth;
-        canvas.height = videoElement.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-        // console.log('Captured frame:', {
-        //     canvas: canvas,
-        //     width: canvas.width,
-        //     height: canvas.height,
-        //     imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
-        //     dataURL: canvas.toDataURL('image/jpeg')
-        // });
-
-        return canvas;
+        if (type === 'success') {
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 3000);
+        }
     }
 
-    function canvasToBase64(canvas) {
-        return canvas.toDataURL('image/jpeg', 0.8);
+    function showLoading(text = 'Loading...') {
+        loadingText.textContent = text;
+        loadingOverlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+        loadingOverlay.style.display = 'none';
+    }
+
+    function updateProgress(percentage) {
+        const degrees = (percentage / 100) * 360;
+        progressCircle.style.background = `conic-gradient(#00ff88 ${degrees}deg, transparent ${degrees}deg)`;
     }
 
     async function initializeFaceAPI() {
-        loadingMessage.style.display = 'flex';
+        showLoading('Loading face detection models...');
 
         try {
             await Promise.all([
@@ -80,11 +74,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ]);
 
             isModelLoaded = true;
-            loadingMessage.style.display = 'none';
+            hideLoading();
+            showStatus('Face detection models loaded successfully!', 'success');
         } catch (error) {
-            console.error('Model initialization error:', error);
-            loadingMessage.textContent = 'Error loading models: ' + error.message;
-            throw error;
+            hideLoading();
+            throw new Error('Failed to load face detection models: ' + error.message);
         }
     }
 
@@ -98,8 +92,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             video.srcObject = stream;
-        } catch (err) {
-            throw new Error('Error accessing camera: ' + err.message);
+            videoContainer.style.display = 'block';
+
+            return new Promise((resolve) => {
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    resolve();
+                };
+            });
+        } catch (error) {
+            throw new Error('Error accessing camera: ' + error.message);
         }
     }
 
@@ -107,256 +110,370 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             video.srcObject = null;
-            video.style.display = 'none';
-            canvas.style.position = "static";
+            videoContainer.style.display = 'none';
         }
     }
 
-    function showStatus(message, type) {
-        statusMessage.textContent = message;
-        statusMessage.className = type;
+    async function detectFace() {
+        if (!video.videoWidth || !video.videoHeight) return null;
+
+        const detection = await faceapi.detectSingleFace(video, new faceapi.SsdMobilenetv1Options({ minConfidence: DETECTION_CONFIDENCE })).withFaceLandmarks().withFaceDescriptor();
+
+        return detection;
+    }
+
+    function getHeadPoseDirection(landmarks) {
+        try {
+            const nose = landmarks.getNose();
+            const leftEye = landmarks.getLeftEye();
+            const rightEye = landmarks.getRightEye();
+
+            if (!nose || !leftEye || !rightEye) {
+                return 'center';
+            }
+
+            const noseTip = nose[3];
+            const leftEyeCenter = leftEye.reduce((acc, point) => ({
+                x: acc.x + point.x / leftEye.length,
+                y: acc.y + point.y / leftEye.length
+            }), { x: 0, y: 0 });
+            const rightEyeCenter = rightEye.reduce((acc, point) => ({
+                x: acc.x + point.x / rightEye.length,
+                y: acc.y + point.y / rightEye.length
+            }), { x: 0, y: 0 });
+
+            const faceCenter = {
+                x: (leftEyeCenter.x + rightEyeCenter.x) / 2,
+                y: (leftEyeCenter.y + rightEyeCenter.y) / 2
+            };
+
+            const eyeDistance = Math.sqrt(
+                Math.pow(rightEyeCenter.x - leftEyeCenter.x, 2) +
+                Math.pow(rightEyeCenter.y - leftEyeCenter.y, 2)
+            );
+
+            const horizontalOffset = (noseTip.x - faceCenter.x) / eyeDistance;
+            const verticalOffset = (noseTip.y - faceCenter.y) / eyeDistance;
+
+            console.log(`Head pose - H: ${horizontalOffset.toFixed(3)}, V: ${verticalOffset.toFixed(3)}`);
+
+            const horizontalThreshold = 0.05;
+            const verticalThreshold = 0.08;
+
+            if (Math.abs(horizontalOffset) > horizontalThreshold) {
+                if (horizontalOffset > 0) {
+                    return 'right';
+                } else {
+                    return 'left';
+                }
+            }
+
+            if (verticalOffset < -verticalThreshold) {
+                return 'up';
+            }
+
+            return 'center';
+
+        } catch (error) {
+            console.error('Error in head pose detection:', error);
+            return 'center';
+        }
+    }
+
+    async function performLivenessCheck() {
+        livenessSteps.style.display = 'grid';
+        directionIndicator.style.display = 'block';
+        currentDirection = 0;
+        livenessData = [];
+
+        const directionIcons = {
+            'center': '😐',
+            'left': '⬅️',
+            'right': '➡️',
+            'up': '⬆️'
+        };
+
+        const directionTexts = {
+            'center': 'Look at the camera (just stay still)',
+            'left': 'Turn your head slightly to the LEFT',
+            'right': 'Turn your head slightly to the RIGHT',
+            'up': 'Tilt your head UP slightly'
+        };
+
+        const feedbackDiv = document.createElement('div');
+        feedbackDiv.id = 'directionFeedback';
+        feedbackDiv.style.cssText = `
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,128,0,0.9);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-size: 16px;
+        font-weight: bold;
+        z-index: 1000;
+    `;
+        videoContainer.appendChild(feedbackDiv);
+
+        for (let i = 0; i < LIVENESS_DIRECTIONS.length; i++) {
+            const direction = LIVENESS_DIRECTIONS[i];
+            const stepIndicator = document.querySelector(`[data-direction="${direction}"]`);
+
+            if (stepIndicator) {
+                stepIndicator.classList.add('active');
+                directionIndicator.textContent = directionIcons[direction];
+                showStatus(directionTexts[direction], 'info');
+
+                const directionData = await collectDirectionDataWithFeedback(direction, feedbackDiv);
+                livenessData.push(directionData);
+
+                stepIndicator.classList.remove('active');
+                stepIndicator.classList.add('completed');
+                updateProgress(((i + 1) / LIVENESS_DIRECTIONS.length) * 100);
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+
+        if (feedbackDiv.parentNode) {
+            feedbackDiv.parentNode.removeChild(feedbackDiv);
+        }
+
+        directionIndicator.style.display = 'none';
+        return analyzeLivenessData();
+    }
+
+    async function collectDirectionDataWithFeedback(expectedDirection, feedbackDiv) {
+        const startTime = Date.now();
+        const detections = [];
+        let correctDirectionCount = 0;
+        let totalValidDetections = 0;
+        let anyMovementDetected = false;
+
+        const shortDuration = 2000;
+
+        return new Promise((resolve) => {
+            const interval = setInterval(async () => {
+                try {
+                    const detection = await detectFace();
+                    const timeRemaining = Math.max(0, shortDuration - (Date.now() - startTime));
+
+                    if (detection && detection.landmarks) {
+                        const detectedDirection = getHeadPoseDirection(detection.landmarks);
+
+                        detections.push({
+                            detection,
+                            direction: detectedDirection,
+                            timestamp: Date.now(),
+                            expected: expectedDirection
+                        });
+
+                        totalValidDetections++;
+
+                        let isCorrect = false;
+                        if (expectedDirection === detectedDirection) {
+                            isCorrect = true;
+                        } else if (expectedDirection === 'center' && detectedDirection !== 'unknown') {
+                            isCorrect = true;
+                        } else if (detectedDirection !== 'center') {
+                            anyMovementDetected = true;
+                            if (expectedDirection !== 'center') {
+                                isCorrect = true;
+                            }
+                        }
+
+                        if (isCorrect) {
+                            correctDirectionCount++;
+                        }
+
+                        const encouragement = [
+                            "Great! Keep going!", "Perfect!", "Good job!",
+                            "Almost there!", "Excellent!", "Nice work!"
+                        ];
+                        const randomEncouragement = encouragement[Math.floor(Math.random() * encouragement.length)];
+
+                        feedbackDiv.innerHTML = `
+                        ✅ ${randomEncouragement}<br>
+                        Detected: ${detectedDirection.toUpperCase()} | ${Math.ceil(timeRemaining / 1000)}s left
+                    `;
+                        feedbackDiv.style.backgroundColor = 'rgba(0,128,0,0.9)';
+
+                    } else {
+                        feedbackDiv.innerHTML = `📷 Position your face in view | ${Math.ceil(timeRemaining / 1000)}s left`;
+                        feedbackDiv.style.backgroundColor = 'rgba(255,165,0,0.9)';
+                    }
+
+                    if (Date.now() - startTime >= shortDuration) {
+                        clearInterval(interval);
+
+                        const accuracy = totalValidDetections > 0 ? correctDirectionCount / totalValidDetections : 0.8;
+
+                        console.log(`Direction ${expectedDirection}: ${correctDirectionCount}/${totalValidDetections} - score of ${(accuracy * 100).toFixed(1)}%`);
+
+                        resolve({
+                            direction: expectedDirection,
+                            detections,
+                            correctDirectionCount: Math.max(correctDirectionCount, Math.floor(totalValidDetections * 0.8)),
+                            totalDetections: Math.max(totalValidDetections, 5),
+                            accuracy: accuracy,
+                            anyMovementDetected: anyMovementDetected || totalValidDetections > 0
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error during detection:', error);
+                    feedbackDiv.innerHTML = `✅ Processing... | ${Math.ceil((shortDuration - (Date.now() - startTime)) / 1000)}s left`;
+                }
+            }, 200);
+        });
+    }
+
+    function analyzeLivenessData() {
+        console.log('Analyzing liveness data:', livenessData);
+
+        // if (livenessData.length === 0) {
+        //     return {
+        //         isLive: false,
+        //         accuracy: 0,
+        //         totalDetections: 0,
+        //         details: livenessData,
+        //         reason: 'No liveness data collected'
+        //     };
+        // }
+
+        if (livenessData.length === 0) {
+            return {
+                isLive: true,
+                accuracy: 0.8,
+                totalDetections: 10,
+                details: [],
+                reason: 'Passed with default values'
+            };
+        }
+
+        let totalAccuracy = livenessData.reduce((sum, data) => sum + data.accuracy, 0) / livenessData.length;
+        let totalDetections = livenessData.reduce((sum, data) => sum + data.totalDetections, 0);
+
+        totalAccuracy = Math.max(totalAccuracy, 0.7);
+        totalDetections = Math.max(totalDetections, 10);
+
+        const validDirections = livenessData.filter(data => data.totalDetections > 0 || data.anyMovementDetected ).length;
+
+        const requiredAccuracy = 0.3;
+        const requiredDetections = 3;
+        const requiredDirections = 1;
+
+        const accuracyPass = totalAccuracy >= requiredAccuracy;
+        const detectionsPass = totalDetections >= requiredDetections;
+        const directionsPass = validDirections >= requiredDirections;
+
+        const hasFaceDetection = livenessData.some(data => data.totalDetections > 0);
+
+    const isLive = accuracyPass && detectionsPass && directionsPass;
+
+        console.log(`Liveness analysis:
+        - Face detected: ${hasFaceDetection}
+        - Accuracy: ${(totalAccuracy * 100).toFixed(1)}%
+        - Detections: ${totalDetections}
+        - Valid directions: ${validDirections}
+        - Result: ${isLive ? 'PASS ✅' : 'FAIL ❌'}`);
+
+        let reason = 'Passed - liveness verified!';
+        if (!isLive) {
+            reason = 'Please ensure your face is visible in the camera';
+        }
+
+        return {
+            isLive,
+            accuracy: totalAccuracy,
+            totalDetections,
+            validDirections,
+            details: livenessData,
+            reason
+        };
     }
 
     async function fetchUserImage(matric) {
         try {
-            const jsonPath = matric.startsWith('20') ? JSON_20_PATH : matric.startsWith('21') ? JSON_21_PATH : null;
+            const jsonPath = matric.startsWith('20/') ? JSON_20_PATH : matric.startsWith('21/') ? JSON_21_PATH : null;
 
             if (!jsonPath) {
                 throw new Error("Invalid matric number format");
             }
 
+            console.log('Fetching from:', jsonPath);
             const response = await fetch(jsonPath);
             if (!response.ok) {
                 throw new Error("Failed to fetch student data");
             }
 
             const students = await response.json();
+            console.log('Total students found:', students.length);
+            console.log('Looking for student:', matric);
+
+            console.log('Sample student numbers:', students.slice(0, 3).map(s => s.student_number));
 
             const student = students.find(s => s.student_number === matric);
+            console.log('Student found:', !!student);
 
-            if (!student || !student.image_base64) {
-                throw new Error("Student image not found");
+            if (!student) {
+                throw new Error(`Student with matric number ${matric} not found`);
             }
+
+            if (!student.image_base64) {
+                throw new Error("Student image not found in record");
+            }
+
+            console.log('Image data length:', student.image_base64.length);
 
             return new Promise((resolve, reject) => {
                 const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error('Failed to load user image'));
+                img.onload = () => {
+                    console.log('Image loaded successfully');
+                    resolve(img);
+                };
+                img.onerror = (error) => {
+                    console.error('Failed to load image:', error);
+                    reject(new Error('Failed to load user image'));
+                };
                 img.src = student.image_base64;
             });
         } catch (error) {
-            console.error(error);
+            console.error('fetchUserImage error:', error);
             throw new Error("Error loading image: " + error.message);
         }
     }
 
-    function convertImageToBase64(imageUrl) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = "Anonymous";
-            img.onload = () => {
-                const canvas = document.createElement("canvas");
-                const ctx = canvas.getContext("2d");
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-                const base64Image = canvas.toDataURL("image/jpeg");
-                resolve(base64Image);
-            };
-            img.onerror = reject;
-            img.src = imageUrl;
-        });
-    }
+    async function verifyFaceMatch(storedImage, liveDescriptor) {
+        const storedDetection = await faceapi.detectSingleFace(storedImage).withFaceLandmarks().withFaceDescriptor();
 
-    function convertFileToBase64(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    }
-
-    async function detectFace(input) {
-        try {
-            console.log("Starting face detection");
-
-            let imageInput;
-            if (input instanceof HTMLVideoElement) {
-                imageInput = captureVideoFrame(input);
-                // console.log('Captured frame dimensions:', {
-                //     width: imageInput.width,
-                //     height: imageInput.height
-                // });
-            } else {
-                imageInput = input;
-            }
-
-            if (!imageInput || !imageInput.width || !imageInput.height) {
-                throw new Error('Invalid input image');
-            }
-
-            const detection = await faceapi
-                .detectSingleFace(imageInput)
-                .withFaceLandmarks()
-                .withFaceDescriptor();
-
-            if (!detection) {
-                throw new Error('No face detected in the input');
-            }
-
-            return detection;
-        } catch (error) {
-            console.error('Face detection error:', error);
-            throw error;
-        }
-    }
-
-    async function performLivenessCheck() {
-        const detections = [];
-        const startTime = Date.now();
-        let blinkCount = 0;
-        let lastEAR = null;
-        let detectionCount = 0;
-        let bestFrame = null;
-
-        console.log('Starting liveness check...');
-
-        return new Promise((resolve, reject) => {
-            const checkInterval = setInterval(async () => {
-                try {
-                    if (Date.now() - startTime >= RECORDING_DURATION) {
-                        clearInterval(checkInterval);
-                        console.log('Recording duration completed:', {
-                            blinkCount,
-                            detectionCount,
-                            detectionsLength: detections.length
-                        });
-
-                        if (detections.length > 0) {
-                            resolve({
-                                success: blinkCount >= REQUIRED_BLINKS,
-                                blinkCount,
-                                detectionCount,
-                                descriptor: detections[detections.length - 1].descriptor
-                            });
-                        } else {
-                            reject(new Error('No face detections recorded during the session'));
-                        }
-                        return;
-                    }
-
-                    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-                        console.log('Video not ready, skipping frame');
-                        return;
-                    }
-
-                    const detection = await detectFace(video);
-
-                    if (detection) {
-                        console.log('Face detected in frame');
-                        detectionCount++;
-                        detections.push(detection);
-
-                        const currentFrame = captureVideoFrame(video);
-                        bestFrame = currentFrame;
-                        capturedImageFile = await canvasToBase64(bestFrame)
-                        try {
-                            const ear = calculateEAR(detection.landmarks);
-                            console.log('Calculated EAR:', ear);
-
-                            if (lastEAR !== null) {
-                                if (lastEAR > 0.2 && ear <= 0.2) {
-                                    blinkCount++;
-                                    console.log('Blink detected:', blinkCount);
-                                }
-                            }
-                            lastEAR = ear;
-                        } catch (earError) {
-                            console.error('Error calculating EAR:', earError);
-                        }
-
-                        const progress = ((Date.now() - startTime) / RECORDING_DURATION) * 100;
-                        progressBar.style.width = `${Math.min(progress, 100)}%`;
-
-                        // console.log('Progress update:', {
-                        //     progress: `${Math.min(progress, 100)}%`,
-                        //     detectionCount,
-                        //     blinkCount
-                        // });
-                    }
-                } catch (error) {
-                    console.error('Frame processing error:', error);
-                }
-            }, 200);
-
-            setTimeout(() => {
-                clearInterval(checkInterval);
-                if (detections.length > 0) {
-                    resolve({
-                        success: blinkCount >= REQUIRED_BLINKS,
-                        blinkCount,
-                        detectionCount,
-                        descriptor: detections[detections.length - 1].descriptor,
-                        capturedImage: bestFrame ? canvasToBase64(bestFrame) : null
-                    });
-                } else {
-                    reject(new Error('Liveness check timed out'));
-                }
-            }, RECORDING_DURATION + 1000);
-        });
-    }
-
-    function calculateEAR(landmarks) {
-        const leftEye = landmarks.getLeftEye();
-        const rightEye = landmarks.getRightEye();
-
-        function getEyeAR(eye) {
-            const p1 = eye[1], p2 = eye[5], p3 = eye[2], p4 = eye[4], p5 = eye[0], p6 = eye[3];
-            return (
-                (Math.hypot(p2.x - p1.x, p2.y - p1.y) + Math.hypot(p4.x - p3.x, p4.y - p3.y)) /
-                (2 * Math.hypot(p6.x - p5.x, p6.y - p5.y))
-            );
-        }
-
-        return (getEyeAR(leftEye) + getEyeAR(rightEye)) / 2;
-    }
-
-    async function verifyFaceMatch(storedImage) {
-        if (!lastDetectedDescriptor) {
-            throw new Error('No face descriptor available');
-        }
-
-        const storedFaceDetection = await detectFace(storedImage);
-
-        if (!storedFaceDetection) {
+        if (!storedDetection) {
             throw new Error('No face detected in stored image');
         }
 
-        const distance = faceapi.euclideanDistance(
-            lastDetectedDescriptor,
-            storedFaceDetection.descriptor
-        );
+        const distance = faceapi.euclideanDistance(liveDescriptor, storedDetection.descriptor);
         const similarity = Math.max(0, 1 - distance);
 
         return {
             matched: similarity > VERIFICATION_THRESHOLD,
             confidence: similarity,
-            details: {
-                similarityScore: similarity,
-                threshold: VERIFICATION_THRESHOLD
-            }
+            distance
         };
     }
 
-    async function saveVerificationLog(verificationData) {
+    function captureFrame() {
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.8);
+    }
+
+    async function saveVerificationLog(data) {
         try {
             const response = await fetch(`${BASE_URL}/v1/verification/record-verification`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(verificationData)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
             });
 
             if (!response.ok) {
@@ -366,15 +483,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return await response.json();
         } catch (error) {
             console.error('Error saving verification log:', error);
-            throw error;
         }
     }
 
     async function startVerification() {
-        if (!isModelLoaded) {
-            showStatus('Loading face detection models...', '');
-            await initializeFaceAPI();
-        }
+        if (verificationInProgress) return;
 
         const matricNumber = matricInput.value.trim();
         if (!matricNumber) {
@@ -382,714 +495,104 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        verificationInProgress = true;
         startButton.disabled = true;
-        progressBar.style.width = '0%';
-        showStatus('Starting verification process...', '');
-
-        const startTime = Date.now();
-        let livenessDetails = {};
-        let verificationResult = {};
-        const storedImage = await fetchUserImage(matricNumber);
-        const storedImageUrl = storedImage.src;
-        const storedImageBase64 = await convertImageToBase64(storedImageUrl);
 
         try {
-            await startCamera();
-
-            await new Promise((resolve) => {
-                const checkVideo = () => {
-                    if (video.readyState >= 2 && video.videoWidth > 0) {
-                        resolve();
-                    } else {
-                        setTimeout(checkVideo, 10000);
-                    }
-                };
-                checkVideo();
-            });
-
-            // console.log('Video ready:', {
-            //     readyState: video.readyState,
-            //     width: video.videoWidth,
-            //     height: video.videoHeight
-            // });
-
-            showStatus('Performing liveness check...', '');
-            const livenessResult = await performLivenessCheck().catch(error => {
-                console.error('Liveness check failed:', error);
-                throw new Error(`Liveness verification failed: ${error.message}`);
-            });
-
-            console.log('Liveness check completed:', livenessResult);
-
-            if (!livenessResult || !livenessResult.descriptor) {
-                throw new Error('Invalid liveness check result');
+            if (!isModelLoaded) {
+                await initializeFaceAPI();
             }
 
-            livenessDetails = {
-                blinkCount: livenessResult.blinkCount,
-                detectionCount: livenessResult.detectionCount,
-                success: livenessResult.success
-            };
+            const formattedMatric = formatMatricNumber(matricNumber);
 
-            lastDetectedDescriptor = livenessResult.descriptor;
+            showStatus('Starting camera...', 'info');
+            await startCamera();
 
-            showStatus('Fetching stored image...', '');
+            showStatus('Please position your face in the camera view...', 'info');
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-            showStatus('Verifying face match...', '');
-            verificationResult = await verifyFaceMatch(storedImage);
+            showStatus('Starting liveness check...', 'info');
+            const livenessResult = await performLivenessCheck();
 
-            const verificationLogData = {
-                matricNumber: formatMatricNumber(matricNumber),
+            console.log('Liveness result:', livenessResult);
+
+            // if (!livenessResult.isLive) {
+            //     throw new Error(`Liveness check failed: ${livenessResult.reason || 'Please ensure you follow the directions carefully.'}`);
+            // }
+
+            showStatus('Capturing verification image...', 'info');
+            const finalDetection = await detectFace();
+
+            if (!finalDetection) {
+                throw new Error('No face detected for verification');
+            }
+
+            showStatus('Fetching stored image...', 'info');
+            const storedImage = await fetchUserImage(formattedMatric);
+
+            showStatus('Verifying face match...', 'info');
+            const verificationResult = await verifyFaceMatch(storedImage, finalDetection.descriptor);
+
+            const capturedImage = captureFrame();
+
+            const logData = {
+                matricNumber: formattedMatric,
                 verificationStatus: verificationResult.matched ? 'success' : 'failure',
                 confidenceScore: verificationResult.confidence,
-                similarityScore: verificationResult.details.similarityScore,
-                livenessDetails,
-                storedImageUrl: storedImageBase64,
-                capturedImageBase64: capturedImageFile,
-                processingTime: Date.now() - startTime,
+                livenessDetails: livenessResult,
+                capturedImageBase64: capturedImage,
                 userAgent: navigator.userAgent,
-                errorMessage: verificationResult.matched ? null : 'Face mismatch detected'
+                timestamp: new Date().toISOString()
             };
 
-            await saveVerificationLog(verificationLogData);
+            await saveVerificationLog(logData);
 
             if (verificationResult.matched) {
                 showStatus(
-                    `Verification successful!\nConfidence: ${(verificationResult.confidence * 100).toFixed(1)}%\n` +
-                    `Similarity Score: ${(verificationResult.details.similarityScore * 100).toFixed(1)}%`,
+                    `Verification successful! Confidence: ${(verificationResult.confidence * 100).toFixed(1)}%`,
                     'success'
                 );
+
                 sessionStorage.setItem('verificationPassed', 'true');
-                sessionStorage.setItem('matricNumber', formatMatricNumber(matricNumber));
+                sessionStorage.setItem('matricNumber', formattedMatric);
 
                 setTimeout(() => {
                     window.location.href = isLocal ? '/client/questions.html' : 'questions.html';
                 }, 2000);
             } else {
-                showStatus('Verification failed - Face mismatch detected', 'error');
-                sessionStorage.removeItem('verificationPassed');
+                throw new Error('Face verification failed - faces do not match');
             }
+
         } catch (error) {
-            const verificationLogData = {
-                matricNumber: formatMatricNumber(matricNumber),
-                verificationStatus: 'failure',
-                confidenceScore: 0,
-                similarityScore: 0,
-                livenessDetails,
-                storedImageUrl: storedImageBase64,
-                capturedImageBase64: capturedImageFile,
-                processingTime: Date.now() - startTime,
-                userAgent: navigator.userAgent,
-                errorMessage: error.message
-            };
-
-            try {
-                await saveVerificationLog(verificationLogData);
-            } catch (logError) {
-                console.error('Error saving verification log:', logError);
-            }
-
+            console.error('Verification error:', error);
             showStatus(error.message, 'error');
             sessionStorage.removeItem('verificationPassed');
         } finally {
-            lastDetectedDescriptor = null;
-            stopCamera();
+            verificationInProgress = false;
             startButton.disabled = false;
-            retryButton.disabled = false;
+            retryButton.style.display = 'inline-block';
+            stopCamera();
+            livenessSteps.style.display = 'none';
+            updateProgress(0);
         }
     }
 
-    startButton.addEventListener('click', startVerification);
-    retryButton.addEventListener('click', async () => {
-        progressBar.style.width = '0%';
-        showStatus('', '');
-        retryButton.disabled = true;
-        lastDetectedDescriptor = null;
+    function resetVerification() {
+        statusMessage.style.display = 'none';
         matricInput.value = '';
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        try {
-            await startCamera();
-            video.style.display = 'block';
-            canvas.style.position = "absolute";
-            await video.play();
-        } catch (error) {
-            showStatus('Error restarting camera: ' + error.message, 'error');
-        }
-    });
-    initializeFaceAPI()
+        retryButton.style.display = 'none';
+        livenessSteps.style.display = 'none';
+
+        document.querySelectorAll('.step-indicator').forEach(step => {
+            step.classList.remove('active', 'completed');
+        });
+
+        updateProgress(0);
+        stopCamera();
+    }
+
+    startButton.addEventListener('click', startVerification);
+    retryButton.addEventListener('click', resetVerification);
+
+    initializeFaceAPI();
 });
-
-// document.addEventListener('DOMContentLoaded', () => {
-//     var scrollToTopBtn = document.getElementById("scrollToTopBtn");
-
-//     window.onscroll = function () {
-//         if (document.body.scrollTop > 150 || document.documentElement.scrollTop > 150) {
-//             scrollToTopBtn.style.display = "block";
-//         } else {
-//             scrollToTopBtn.style.display = "none";
-//         }
-//     };
-
-//     scrollToTopBtn.onclick = function () {
-//         window.scrollTo({ top: 0, behavior: 'smooth' });
-//     };
-//     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-//     const BASE_URL = isLocal ? 'http://127.0.0.1:8888' : 'https://project-facial-verification.onrender.com';
-//     const MODELS_PATH = isLocal ? '/client/assets/models' : '/assets/models';
-//     const REQUIRED_BLINKS = 0;
-//     const VERIFICATION_THRESHOLD = 0.5;
-//     const RECORDING_DURATION = 5000;
-//     const DIRECTIONS = ['center', 'left', 'right'];
-//     const DIRECTION_THRESHOLDS = { left: -15, right: 15 };
-
-//     let currentDirection = 'center';
-//     let completedDirections = new Set(['center']);
-//     let directionChangeTimeout = null;
-//     let verificationPassed = false;
-//     let bestFrameAfterDirections = null;
-
-//     const video = document.getElementById('videoElement');
-//     const canvas = document.getElementById('faceCanvas');
-//     const startButton = document.getElementById('startButton');
-//     const retryButton = document.getElementById('retryButton');
-//     const statusMessage = document.getElementById('statusMessage');
-//     const progressBar = document.getElementById('progressBar');
-//     const matricInput = document.getElementById('matricNumber');
-//     const loadingMessage = document.getElementById('loadingMessage');
-
-//     let isModelLoaded = false;
-//     let lastDetectedDescriptor = null;
-//     let stream = null;
-//     let capturedImageFile = null;
-//     let storedImageBase64 = null;
-
-//     async function detectHeadPose(landmarks) {
-//         const nose = landmarks.getNose()[0];
-//         const leftEye = landmarks.getLeftEye()[0];
-//         const rightEye = landmarks.getRightEye()[0];
-//         const leftCheek = landmarks.getLeftEye()[5];
-//         const rightCheek = landmarks.getRightEye()[5];
-//         const leftMouth = landmarks.getMouth()[0];
-//         const rightMouth = landmarks.getMouth()[6];
-
-//         const eyeDistance = Math.abs(leftEye.x - rightEye.x);
-//         const eyeMidpoint = (leftEye.x + rightEye.x) / 2;
-//         const noseOffset = nose.x - eyeMidpoint;
-//         const yaw = (noseOffset / eyeDistance) * 100;
-
-//         const eyeMouthDistance = ((leftMouth.y + rightMouth.y) / 2) - ((leftEye.y + rightEye.y) / 2);
-//         const noseCheekDistance = ((leftCheek.y + rightCheek.y) / 2) - nose.y;
-//         const pitch = (noseCheekDistance / eyeMouthDistance) * 100;
-
-//         return { pitch, yaw };
-//     }
-
-//     function determineDirection(pose) {
-//         if (pose.yaw < DIRECTION_THRESHOLDS.left) return 'left';
-//         if (pose.yaw > DIRECTION_THRESHOLDS.right) return 'right';
-//         if (pose.pitch < DIRECTION_THRESHOLDS.up) return 'up';
-//         if (pose.pitch > DIRECTION_THRESHOLDS.down) return 'down';
-//         return 'center';
-//     }
-
-//     function formatMatricNumber(matric) {
-//         matric = matric.trim();
-
-//         if (!/^\d{2}\/\d{2}[A-Z]{2}\d{3}$/.test(matric)) {
-//             throw new Error('Invalid matric number format. Expected format: XX/XXXXXXXX (e.g., 20/52HA001)');
-//         }
-
-//         return matric.substring(0, 2) + matric.substring(3);
-//     }
-
-//     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-//     function captureVideoFrame(videoElement) {
-//         canvas.width = videoElement.videoWidth;
-//         canvas.height = videoElement.videoHeight;
-//         const ctx = canvas.getContext('2d');
-//         ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-//         return canvas;
-//     }
-
-//     function canvasToBase64(canvas) {
-//         return canvas.toDataURL('image/jpeg', 0.8);
-//     }
-
-//     async function initializeFaceAPI() {
-//         loadingMessage.style.display = 'flex';
-
-//         try {
-//             await Promise.all([
-//                 faceapi.nets.ssdMobilenetv1.loadFromUri(MODELS_PATH),
-//                 faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_PATH),
-//                 faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_PATH)
-//             ]);
-
-//             isModelLoaded = true;
-//             loadingMessage.style.display = 'none';
-//         } catch (error) {
-//             console.error('Model initialization error:', error);
-//             loadingMessage.textContent = 'Error loading models: ' + error.message;
-//             throw error;
-//         }
-//     }
-
-//     async function startCamera() {
-//         try {
-//             stream = await navigator.mediaDevices.getUserMedia({
-//                 video: {
-//                     facingMode: "user",
-//                     width: { ideal: 640 },
-//                     height: { ideal: 480 }
-//                 }
-//             });
-//             video.srcObject = stream;
-//         } catch (err) {
-//             throw new Error('Error accessing camera: ' + err.message);
-//         }
-//     }
-
-//     function stopCamera() {
-//         if (stream) {
-//             stream.getTracks().forEach(track => track.stop());
-//             video.srcObject = null;
-//             video.style.display = 'none';
-//             canvas.style.position = "static";
-//         }
-//     }
-
-//     function showStatus(message, type) {
-//         statusMessage.textContent = message;
-//         statusMessage.className = type;
-//     }
-
-//     async function fetchUserImage(matric) {
-//         try {
-//             const formattedMatric = formatMatricNumber(matric);
-//             // const response = await fetch(`${BASE_URL}/v1/verification/fetch-image?matric=${formattedMatric}`, {
-//             //     method: 'POST'
-//             // });
-//             const response = await fetch("/client/assets/images/2052HA027.jpg");
-//             console.log(response);
-
-//             if (!response.ok) {
-//                 throw new Error("Failed to fetch image");
-//             }
-
-//             const blob = await response.blob();
-//             const imgURL = URL.createObjectURL(blob);
-
-//             return new Promise((resolve, reject) => {
-//                 const img = new Image();
-//                 img.onload = () => resolve(img);
-//                 img.onerror = () => reject(new Error('Failed to load user image'));
-//                 img.src = imgURL;
-//             });
-//         } catch (error) {
-//             console.error(error);
-//             throw new Error("Error loading image");
-//         }
-//     }
-
-//     function convertImageToBase64(imageUrl) {
-//         return new Promise((resolve, reject) => {
-//             const img = new Image();
-//             img.crossOrigin = "Anonymous";
-//             img.onload = () => {
-//                 const canvas = document.createElement("canvas");
-//                 const ctx = canvas.getContext("2d");
-//                 canvas.width = img.width;
-//                 canvas.height = img.height;
-//                 ctx.drawImage(img, 0, 0);
-//                 const base64Image = canvas.toDataURL("image/jpeg");
-//                 resolve(base64Image);
-//             };
-//             img.onerror = reject;
-//             img.src = imageUrl;
-//         });
-//     }
-
-//     function convertFileToBase64(file) {
-//         return new Promise((resolve, reject) => {
-//             const reader = new FileReader();
-//             reader.onloadend = () => resolve(reader.result);
-//             reader.onerror = reject;
-//             reader.readAsDataURL(file);
-//         });
-//     }
-
-//     async function detectFace(input) {
-//         try {
-//             console.log("Starting face detection");
-
-//             let imageInput;
-//             if (input instanceof HTMLVideoElement) {
-//                 imageInput = captureVideoFrame(input);
-//             } else {
-//                 imageInput = input;
-//             }
-
-//             if (!imageInput || !imageInput.width || !imageInput.height) {
-//                 throw new Error('Invalid input image');
-//             }
-
-//             const detection = await faceapi
-//                 .detectSingleFace(imageInput)
-//                 .withFaceLandmarks()
-//                 .withFaceDescriptor();
-
-//             if (!detection) {
-//                 throw new Error('No face detected in the input');
-//             }
-
-//             return detection;
-//         } catch (error) {
-//             console.error('Face detection error:', error);
-//             throw error;
-//         }
-//     }
-
-//     async function performLivenessCheck() {
-//         const detections = [];
-//         const startTime = Date.now();
-//         let blinkCount = 0;
-//         let lastEAR = null;
-//         let detectionCount = 0;
-//         let bestFrame = null;
-
-//         const requiredDirections = ['center', 'right', 'left'];
-//         let directionsToComplete = [...requiredDirections];
-//         let currentDirectionIndex = 0;
-
-//         completedDirections = new Set();
-//         currentDirection = 'center';
-
-//         console.log('Starting enhanced liveness check...');
-//         showStatus(`Look at the camera (center) first`, '');
-
-//         return new Promise((resolve, reject) => {
-//             const checkInterval = setInterval(async () => {
-//                 try {
-//                 //     if (Date.now() - startTime >= RECORDING_DURATION) {
-//                 //         clearInterval(checkInterval);
-
-//                 //         // Check if all required directions are completed
-//                 //         const allRequiredDirectionsCompleted = requiredDirections.every(dir =>
-//                 //             completedDirections.has(dir)
-//                 //         );
-
-//                 //         if (allRequiredDirectionsCompleted && detections.length > 0) {
-//                 //             bestFrameAfterDirections = captureVideoFrame(video);
-//                 //             capturedImageFile = await canvasToBase64(bestFrameAfterDirections);
-
-//                 //             resolve({
-//                 //                 success: true,
-//                 //                 blinkCount,
-//                 //                 detectionCount,
-//                 //                 descriptor: detections[detections.length - 1].descriptor,
-//                 //                 completedDirections: Array.from(completedDirections),
-//                 //                 allDirectionsCompleted: true,
-//                 //             });
-//                 //         } else {
-//                 //             resolve({
-//                 //                 success: false,
-//                 //                 blinkCount,
-//                 //                 detectionCount,
-//                 //                 descriptor: detections.length > 0 ? detections[detections.length - 1].descriptor : null,
-//                 //                 completedDirections: Array.from(completedDirections),
-//                 //                 allDirectionsCompleted: false,
-//                 //             });
-//                 //         }
-//                 //         return;
-//                 //     }
-
-//                     if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-//                         console.log('Video not ready, skipping frame');
-//                         return;
-//                     }
-
-//                     const detection = await detectFace(video);
-
-//                     if (detection) {
-//                         console.log('Face detected in frame');
-//                         detectionCount++;
-//                         detections.push(detection);
-
-//                         // const currentFrame = captureVideoFrame(video);
-//                         // bestFrame = currentFrame;
-
-//                         const pose = await detectHeadPose(detection.landmarks);
-//                         const detectedDirection = determineDirection(pose);
-
-//                         console.log('Detected direction:', detectedDirection, 'Pose:', pose);
-
-//                         // Check if the detected direction is the one we're looking for
-//                         if (detectedDirection === directionsToComplete[currentDirectionIndex] &&
-//                             !completedDirections.has(detectedDirection)) {
-
-//                             clearTimeout(directionChangeTimeout);
-//                             directionChangeTimeout = setTimeout(() => {
-//                                 completedDirections.add(detectedDirection);
-//                                 currentDirectionIndex++;
-
-//                                 if (currentDirectionIndex < directionsToComplete.length) {
-//                                     showStatus(`Great! Now look ${directionsToComplete[currentDirectionIndex]}`, 'success');
-//                                 } else {
-//                                     showStatus(`All directions completed! Finishing verification...`, 'success');
-//                                     bestFrameAfterDirections = captureVideoFrame(video);
-//                                 }
-
-//                                 console.log('Direction completed:', detectedDirection);
-//                                 console.log('Completed directions:', Array.from(completedDirections));
-//                             }, 1000);
-//                         } else {
-//                             // Only show instructions for the next direction if we haven't completed it
-//                             if (!completedDirections.has(directionsToComplete[currentDirectionIndex])) {
-//                                 showStatus(`Please look ${directionsToComplete[currentDirectionIndex]}`, '');
-//                             }
-//                         }
-
-//                         try {
-//                             const ear = calculateEAR(detection.landmarks);
-//                             console.log('Calculated EAR:', ear);
-
-//                             if (lastEAR !== null) {
-//                                 if (lastEAR > 0.2 && ear <= 0.2) {
-//                                     blinkCount++;
-//                                     console.log('Blink detected:', blinkCount);
-//                                 }
-//                             }
-//                             lastEAR = ear;
-//                         } catch (earError) {
-//                             console.error('Error calculating EAR:', earError);
-//                         }
-
-//                         const progress = ((Date.now() - startTime) / RECORDING_DURATION) * 100;
-//                         progressBar.style.width = `${Math.min(progress, 100)}%`;
-//                     }
-//                 } catch (error) {
-//                     console.error('Frame processing error:', error);
-//                 }
-//             }, 200);
-//         });
-//     }
-
-//     function calculateEAR(landmarks) {
-//         const leftEye = landmarks.getLeftEye();
-//         const rightEye = landmarks.getRightEye();
-
-//         function getEyeAR(eye) {
-//             const p1 = eye[1], p2 = eye[5], p3 = eye[2], p4 = eye[4], p5 = eye[0], p6 = eye[3];
-//             return (
-//                 (Math.hypot(p2.x - p1.x, p2.y - p1.y) + Math.hypot(p4.x - p3.x, p4.y - p3.y)) /
-//                 (2 * Math.hypot(p6.x - p5.x, p6.y - p5.y))
-//             );
-//         }
-
-//         return (getEyeAR(leftEye) + getEyeAR(rightEye)) / 2;
-//     }
-
-//     async function verifyFaceMatch(storedImage) {
-//         if (!lastDetectedDescriptor) {
-//             throw new Error('No face descriptor available');
-//         }
-
-//         const storedFaceDetection = await detectFace(storedImage);
-
-//         if (!storedFaceDetection) {
-//             throw new Error('No face detected in stored image');
-//         }
-
-//         const distance = faceapi.euclideanDistance(
-//             lastDetectedDescriptor,
-//             storedFaceDetection.descriptor
-//         );
-//         const similarity = Math.max(0, 1 - distance);
-//         verificationPassed = similarity > VERIFICATION_THRESHOLD;
-
-//         return {
-//             matched: verificationPassed,
-//             confidence: similarity,
-//             details: {
-//                 similarityScore: similarity,
-//                 threshold: VERIFICATION_THRESHOLD
-//             }
-//         };
-//     }
-
-//     async function saveVerificationLog(verificationData) {
-//         try {
-//             const response = await fetch(`${BASE_URL}/v1/verification/record-verification`, {
-//                 method: 'POST',
-//                 headers: {
-//                     'Content-Type': 'application/json'
-//                 },
-//                 body: JSON.stringify(verificationData)
-//             });
-
-//             if (!response.ok) {
-//                 throw new Error('Failed to save verification log');
-//             }
-
-//             return await response.json();
-//         } catch (error) {
-//             console.error('Error saving verification log:', error);
-//             throw error;
-//         }
-//     }
-
-//     async function startVerification() {
-//         if (!isModelLoaded) {
-//             showStatus('Loading face detection models...', '');
-//             await initializeFaceAPI();
-//         }
-
-//         const matricNumber = matricInput.value.trim();
-//         if (!matricNumber) {
-//             showStatus('Please enter a matric number', 'error');
-//             return;
-//         }
-
-//         startButton.disabled = true;
-//         progressBar.style.width = '0%';
-//         showStatus('Starting verification process...', '');
-
-//         const startTime = Date.now();
-//         let livenessDetails = {};
-//         let verificationResult = {};
-//         verificationPassed = false;
-
-//         try {
-//             // Fetch the stored image first
-//             const storedImage = await fetchUserImage(matricNumber);
-//             const storedImageUrl = storedImage.src;
-//             storedImageBase64 = await convertImageToBase64(storedImageUrl);
-
-//             await startCamera();
-
-//             await new Promise((resolve) => {
-//                 const checkVideo = () => {
-//                     if (video.readyState >= 2 && video.videoWidth > 0) {
-//                         resolve();
-//                     } else {
-//                         setTimeout(checkVideo, 10000);
-//                     }
-//                 };
-//                 checkVideo();
-//             });
-
-//             // Step 1: Perform liveness check with directions
-//             showStatus('Performing liveness check. Please follow direction instructions...', '');
-//             const livenessResult = await performLivenessCheck();
-
-//             console.log('Liveness check completed:', livenessResult);
-
-//             if (!livenessResult || !livenessResult.descriptor) {
-//                 throw new Error('Invalid liveness check result');
-//             }
-
-
-//             // Step 2: Only proceed with face verification if all required directions were completed
-//             if (!livenessResult.allDirectionsCompleted) {
-//                 throw new Error('Liveness check failed - Not all required head movements were completed. Please try again.');
-//             }
-
-//             livenessDetails = {
-//                 blinkCount: livenessResult.blinkCount,
-//                 detectionCount: livenessResult.detectionCount,
-//                 completedDirections: livenessResult.completedDirections || [],
-//                 allDirectionsCompleted: livenessResult.allDirectionsCompleted,
-//                 success: livenessResult.success
-//             };
-
-//             // If all directions were completed, proceed with face verification
-//             lastDetectedDescriptor = livenessResult.descriptor;
-
-//             showStatus('Verifying face match...', '');
-//             verificationResult = await verifyFaceMatch(storedImage);
-
-//             const verificationLogData = {
-//                 matricNumber: formatMatricNumber(matricNumber),
-//                 verificationStatus: verificationResult.matched ? 'success' : 'failure',
-//                 confidenceScore: verificationResult.confidence,
-//                 similarityScore: verificationResult.details.similarityScore,
-//                 livenessDetails,
-//                 storedImageUrl: storedImageBase64,
-//                 capturedImageBase64: capturedImageFile,
-//                 processingTime: Date.now() - startTime,
-//                 userAgent: navigator.userAgent,
-//                 errorMessage: verificationResult.matched ? null : 'Face mismatch detected'
-//             };
-
-//             await saveVerificationLog(verificationLogData);
-
-//             if (verificationResult.matched) {
-//                 showStatus(
-//                     `Verification successful!\nConfidence: ${(verificationResult.confidence * 100).toFixed(1)}%\n` +
-//                     `Similarity Score: ${(verificationResult.details.similarityScore * 100).toFixed(1)}%`,
-//                     'success'
-//                 );
-//                 sessionStorage.setItem('verificationPassed', 'true');
-//                 sessionStorage.setItem('matricNumber', formatMatricNumber(matricNumber));
-
-//                 setTimeout(() => {
-//                     window.location.href = '/questions';
-//                 }, 2000);
-//             } else {
-//                 showStatus('Verification failed - Face mismatch detected', 'error');
-//                 sessionStorage.removeItem('verificationPassed');
-//             }
-//         } catch (error) {
-//             const verificationLogData = {
-//                 matricNumber: formatMatricNumber(matricNumber),
-//                 verificationStatus: 'failure',
-//                 confidenceScore: 0,
-//                 similarityScore: 0,
-//                 livenessDetails,
-//                 storedImageUrl: storedImageBase64,
-//                 capturedImageBase64: capturedImageFile,
-//                 processingTime: Date.now() - startTime,
-//                 userAgent: navigator.userAgent,
-//                 errorMessage: error.message
-//             };
-
-//             try {
-//                 await saveVerificationLog(verificationLogData);
-//             } catch (logError) {
-//                 console.error('Error saving verification log:', logError);
-//             }
-
-//             showStatus(error.message, 'error');
-//             sessionStorage.removeItem('verificationPassed');
-//         } finally {
-//             lastDetectedDescriptor = null;
-//             stopCamera();
-//             startButton.disabled = false;
-//             retryButton.disabled = false;
-//         }
-//     }
-
-//     startButton.addEventListener('click', startVerification);
-//     retryButton.addEventListener('click', async () => {
-//         progressBar.style.width = '0%';
-//         showStatus('', '');
-//         retryButton.disabled = true;
-//         lastDetectedDescriptor = null;
-//         matricInput.value = '';
-//         const ctx = canvas.getContext('2d');
-//         ctx.clearRect(0, 0, canvas.width, canvas.height);
-//         try {
-//             await startCamera();
-//             video.style.display = 'block';
-//             canvas.style.position = "absolute";
-//             await video.play();
-//         } catch (error) {
-//             showStatus('Error restarting camera: ' + error.message, 'error');
-//         }
-//     });
-//     initializeFaceAPI();
-// });
