@@ -30,106 +30,288 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalContent = document.getElementById('modalContent');
 
     function openModal(verification) {
-        const confidenceScore = verification.confidenceScore || verification.similarityScore || 0;
+        const confidenceScore = verification?.confidenceScore || verification?.similarityScore || 0;
         const confidenceColor = confidenceScore > 0.8 ? 'text-green-600' :
             confidenceScore > 0.6 ? 'text-yellow-600' : 'text-red-600';
 
-        const statusBadge = verification.verificationStatus === 'success'
+        const statusBadge = verification?.verificationStatus === 'success'
             ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Success</span>'
             : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">✗ Failed</span>';
 
-        modalContent.innerHTML = `
-        <div class="py-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <span class="text-lg font-medium text-indigo-800">${verification.matricNumber ? verification.matricNumber.slice(-4) : 'N/A'}</span>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-lg font-medium text-gray-900">${verification.matricNumber || 'N/A'}</h3>
-                        <p class="text-sm text-gray-500">Student ID</p>
-                    </div>
-                </div>
-                ${statusBadge}
-            </div>
-            
-            <div class="mt-6">
-                <h4 class="text-sm font-medium text-gray-500">Verification Information</h4>
-                <dl class="mt-2 grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="px-4 py-5 sm:p-6">
-                            <dt class="text-sm font-medium text-gray-500 truncate">Date</dt>
-                            <dd class="mt-1 text-lg font-semibold text-gray-900">${verification.timestamp ? new Date(verification.timestamp).toLocaleDateString() : 'N/A'}</dd>
-                        </div>
-                    </div>
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="px-4 py-5 sm:p-6">
-                            <dt class="text-sm font-medium text-gray-500 truncate">Time</dt>
-                            <dd class="mt-1 text-lg font-semibold text-gray-900">${verification.timestamp ? new Date(verification.timestamp).toLocaleTimeString() : 'N/A'}</dd>
-                        </div>
-                    </div>
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="px-4 py-5 sm:p-6">
-                            <dt class="text-sm font-medium text-gray-500 truncate">Confidence</dt>
-                            <dd class="mt-1 text-lg font-semibold ${confidenceColor}">${(confidenceScore * 100).toFixed(1)}%</dd>
-                        </div>
-                    </div>
-                    <div class="bg-white overflow-hidden shadow rounded-lg">
-                        <div class="px-4 py-5 sm:p-6">
-                            <dt class="text-sm font-medium text-gray-500 truncate">Device</dt>
-                            <dd class="mt-1 text-lg font-semibold text-gray-900">${verification.deviceId || 'Unknown'}</dd>
-                        </div>
-                    </div>
-                </dl>
-            </div>
-            
-            <div class="mt-6">
-                <h4 class="text-sm font-medium text-gray-500">Images</h4>
-                <div class="mt-4 grid grid-cols-2 items-stretch gap-4">
-                    <div class="h-full">
-                        <div class="aspect-w-1 aspect-h-1 h-full bg-gray-100 rounded-lg overflow-hidden">
-                            <img src="${verification.capturedImageBase64 || 'https://via.placeholder.com/300'}" alt="Captured" class="object-cover h-full w-full">
-                        </div>
-                        <p class="mt-2 text-sm text-center text-gray-500">Captured Image</p>
-                    </div>
-                    <div class="h-full">
-                        <div class="aspect-w-1 aspect-h-1 h-full bg-gray-100 rounded-lg overflow-hidden">
-                            <img src="${verification.storedImageUrl || 'https://via.placeholder.com/300'}" alt="Stored" class="object-cover h-full w-full">
-                        </div>
-                        <p class="mt-2 text-sm text-center text-gray-500">Stored Image</p>
-                    </div>
-                </div>
-            </div>
-            
-            ${verification.verificationStatus === 'failure' ? `
-            <div class="mt-6">
-                <h4 class="text-sm font-medium text-gray-500">Failure Analysis</h4>
-                <div class="mt-2 bg-red-50 rounded-lg p-4">
-                    <p class="text-sm text-red-700">The system detected a mismatch between the captured image and the stored image. This could be due to:</p>
-                    <ul class="mt-2 list-disc list-inside text-sm text-red-700">
-                        <li>Poor lighting conditions</li>
-                        <li>Obstructions (glasses, masks, etc.)</li>
-                        <li>Significant changes in appearance</li>
-                        <li>Potential impersonation attempt</li>
-                    </ul>
-                </div>
-            </div>
-            ` : ''}
-        </div>
-    `;
+        let livenessSection = '';
+        if (verification?.livenessDetails) {
+            const liveness = verification?.livenessDetails;
+            const livenessColor = liveness?.isLive ? 'text-green-600' : 'text-red-600';
+            const livenessBadge = liveness?.isLive
+                ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Live</span>'
+                : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">✗ Not Live</span>';
 
-        detailsModal.classList.remove('hidden');
+            const directionIcons = {
+                'center': '⚬',
+                'left': '←',
+                'right': '→',
+                'up': '↑',
+                'down': '↓'
+            };
+
+            let directionsHtml = '';
+            if (liveness?.details && liveness?.details.length > 0) {
+                directionsHtml = liveness?.details.map(detail => {
+                    const accuracy = (detail.accuracy * 100).toFixed(1);
+                    const accuracyColor = detail.accuracy > 0.8 ? 'text-green-600' :
+                        detail.accuracy > 0.6 ? 'text-yellow-600' : 'text-red-600';
+                    return `
+                            <div class="liveness-direction bg-gray-50 rounded-lg p-3 border-l-4 ${detail.accuracy > 0.8 ? 'border-green-400' : detail.accuracy > 0.6 ? 'border-yellow-400' : 'border-red-400'}">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-2xl">${directionIcons[detail.direction] || '•'}</span>
+                                        <span class="font-medium text-gray-900 capitalize">${detail.direction}</span>
+                                    </div>
+                                    <span class="text-sm font-medium ${accuracyColor}">${accuracy}%</span>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-600">
+                                    <span class="mr-4">${detail.correctDirectionCount}/${detail.totalDetections} correct</span>
+                                    ${detail.anyMovementDetected ?
+                            '<span class="text-green-600">✓ Movement detected</span>' :
+                            '<span class="text-red-600">✗ No movement</span>'}
+                                </div>
+                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="h-2 rounded-full ${detail.accuracy > 0.8 ? 'bg-green-500' : detail.accuracy > 0.6 ? 'bg-yellow-500' : 'bg-red-500'}" 
+                                         style="width: ${detail.accuracy * 100}%"></div>
+                                </div>
+                            </div>
+                        `;
+                }).join('');
+            }
+
+            livenessSection = `
+                    <div class="mt-6 fade-in">
+                        <h4 class="text-sm font-medium text-gray-500 mb-4">Liveness Detection</h4>
+                        <div class="bg-white border rounded-lg p-4 mb-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="h-12 w-12 rounded-full ${liveness?.isLive ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center">
+                                        ${liveness?.isLive ?
+                    '<svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' :
+                    '<svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'
+                }
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-gray-900">Liveness Status</p>
+                                        <p class="text-sm text-gray-500">${liveness?.reason || 'No reason provided'}</p>
+                                    </div>
+                                </div>
+                                ${livenessBadge}
+                            </div>
+                            
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold ${livenessColor}">${(liveness?.accuracy * 100 || 0).toFixed(1)}%</div>
+                                    <div class="text-xs text-gray-500">Overall Accuracy</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-gray-900">${liveness?.totalDetections || 0}</div>
+                                    <div class="text-xs text-gray-500">Total Detections</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-indigo-600">${liveness?.validDirections || 0}</div>
+                                    <div class="text-xs text-gray-500">Valid Directions</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-purple-600">${liveness?.details ? liveness?.details.length : 0}</div>
+                                    <div class="text-xs text-gray-500">Tested Directions</div>
+                                </div>
+                            </div>
+                            
+                            ${directionsHtml ? `
+                                <div class="border-t pt-4">
+                                    <h5 class="text-sm font-medium text-gray-700 mb-3">Direction Analysis</h5>
+                                    <div class="grid gap-3">
+                                        ${directionsHtml}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+        }
+
+        let faceDetectionSection = '';
+        if (verification?.faceDetectionDetails) {
+            const face = verification?.faceDetectionDetails;
+            const faceConfidence = (face.faceConfidence * 100).toFixed(1);
+            const confidenceColor = face.faceConfidence > 0.9 ? 'text-green-600' :
+                face.faceConfidence > 0.7 ? 'text-yellow-600' : 'text-red-600';
+
+            faceDetectionSection = `
+                    <div class="mt-6 fade-in">
+                        <h4 class="text-sm font-medium text-gray-500 mb-4">Face Detection Analysis</h4>
+                        <div class="bg-white border rounded-lg p-4">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="text-center">
+                                    <div class="h-12 w-12 mx-auto rounded-full ${face.faceDetected ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center mb-2">
+                                        ${face.faceDetected ?
+                    '<svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' :
+                    '<svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'
+                }
+                                    </div>
+                                    <div class="text-sm font-medium ${face.faceDetected ? 'text-green-600' : 'text-red-600'}">
+                                        ${face.faceDetected ? 'Face Detected' : 'No Face Detected'}
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold ${confidenceColor}">${faceConfidence}%</div>
+                                    <div class="text-xs text-gray-500">Confidence</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="h-12 w-12 mx-auto rounded-full ${face.landmarksDetected ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center mb-2">
+                                        ${face.landmarksDetected ?
+                    '<svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"></path></svg>' :
+                    '<svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'
+                }
+                                    </div>
+                                    <div class="text-sm font-medium ${face.landmarksDetected ? 'text-green-600' : 'text-red-600'}">
+                                        ${face.landmarksDetected ? 'Landmarks OK' : 'No Landmarks'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+        }
+
+        let deviceInfoSection = '';
+        if (verification?.deviceInfo) {
+            const device = verification?.deviceInfo;
+            deviceInfoSection = `
+                    <div class="mt-6 fade-in">
+                        <h4 class="text-sm font-medium text-gray-500 mb-4">Device Information</h4>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-500">Platform</div>
+                                    <div class="text-sm text-gray-900">${device.platform || 'Unknown'}</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-500">Language</div>
+                                    <div class="text-sm text-gray-900">${device.language || 'Unknown'}</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-500">Timezone</div>
+                                    <div class="text-sm text-gray-900">${device.timezone || 'Unknown'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+        }
+
+        const modalContent = document.getElementById('modalContent');
+        modalContent.innerHTML = `
+                <div class="py-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span class="text-lg font-medium text-indigo-800">${verification?.matricNumber ? verification?.matricNumber.slice(-4) : 'N/A'}</span>
+                            </div>
+                            <div class="ml-4">
+                                <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" src="${verification?.storedImageUrl || 'https://via.placeholder.com/48'}" alt="Stored">
+                                <p class="text-sm text-gray-500">Student ID</p>
+                            </div>
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    
+                    <div class="mt-6 fade-in">
+                        <h4 class="text-sm font-medium text-gray-500">Verification Information</h4>
+                        <dl class="mt-2 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                            <div class="bg-white overflow-hidden shadow rounded-lg">
+                                <div class="px-4 py-5 sm:p-6">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Date</dt>
+                                    <dd class="mt-1 text-lg font-semibold text-gray-900">${verification?.timestamp ? new Date(verification?.timestamp).toLocaleDateString() : 'N/A'}</dd>
+                                </div>
+                            </div>
+                            <div class="bg-white overflow-hidden shadow rounded-lg">
+                                <div class="px-4 py-5 sm:p-6">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Time</dt>
+                                    <dd class="mt-1 text-lg font-semibold text-gray-900">${verification?.timestamp ? new Date(verification?.timestamp).toLocaleTimeString() : 'N/A'}</dd>
+                                </div>
+                            </div>
+                            <div class="bg-white overflow-hidden shadow rounded-lg">
+                                <div class="px-4 py-5 sm:p-6">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Confidence</dt>
+                                    <dd class="mt-1 text-lg font-semibold ${confidenceColor}">${(confidenceScore * 100).toFixed(1)}%</dd>
+                                </div>
+                            </div>
+                            <div class="bg-white overflow-hidden shadow rounded-lg">
+                                <div class="px-4 py-5 sm:p-6">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Processing Time</dt>
+                                    <dd class="mt-1 text-lg font-semibold text-gray-900">${verification?.processingTime ? (verification?.processingTime / 1000).toFixed(2) + 's' : 'Unknown'}</dd>
+                                </div>
+                            </div>
+                        </dl>
+                    </div>
+                    
+                    ${livenessSection}
+                    ${faceDetectionSection}
+                    ${deviceInfoSection}
+                    
+                    <div class="mt-6 fade-in">
+                        <h4 class="text-sm font-medium text-gray-500">Images</h4>
+                        <div class="mt-4 grid grid-cols-2 items-stretch gap-4">
+                            <div class="h-full">
+                                <div class="aspect-w-1 aspect-h-1 h-full bg-gray-100 rounded-lg overflow-hidden">
+                                    <img src="${verification?.capturedImageBase64 || 'https://via.placeholder.com/300'}" alt="Captured" class="object-cover h-full w-full">
+                                </div>
+                                <p class="mt-2 text-sm text-center text-gray-500">Captured Image</p>
+                            </div>
+                            <div class="h-full">
+                                <div class="aspect-w-1 aspect-h-1 h-full bg-gray-100 rounded-lg overflow-hidden">
+                                    <img src="${verification?.storedImageUrl || 'https://via.placeholder.com/300'}" alt="Stored" class="object-cover h-full w-full">
+                                </div>
+                                <p class="mt-2 text-sm text-center text-gray-500">Stored Image</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${verification?.verificationStatus === 'failure' ? `
+                    <div class="mt-6 fade-in">
+                        <h4 class="text-sm font-medium text-gray-500">Failure Analysis</h4>
+                        <div class="mt-2 bg-red-50 rounded-lg p-4">
+                            <p class="text-sm text-red-700">The system detected a mismatch between the captured image and the stored image. This could be due to:</p>
+                            <ul class="mt-2 list-disc list-inside text-sm text-red-700">
+                                <li>Poor lighting conditions</li>
+                                <li>Obstructions (glasses, masks, etc.)</li>
+                                <li>Significant changes in appearance</li>
+                                <li>Potential impersonation attempt</li>
+                            </ul>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+        const modal = document.getElementById('detailsModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        const panel = document.getElementById('modalPanel');
+
+        modal.classList.remove('hidden');
         setTimeout(() => {
-            modalBackdrop.classList.add('opacity-100');
-            modalPanel.classList.remove('translate-x-full');
+            backdrop.classList.add('opacity-100');
+            panel.classList.remove('translate-x-full');
         }, 20);
     }
 
+
     function closeModalHandler() {
-        modalBackdrop.classList.remove('opacity-100');
-        modalPanel.classList.add('translate-x-full');
+        const backdrop = document.getElementById('modalBackdrop');
+        const panel = document.getElementById('modalPanel');
+        const modal = document.getElementById('detailsModal');
+
+        backdrop.classList.remove('opacity-100');
+        panel.classList.add('translate-x-full');
         setTimeout(() => {
-            detailsModal.classList.add('hidden');
+            modal.classList.add('hidden');
         }, 300);
     }
 
@@ -147,8 +329,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchQuery = searchVerificationInput.value.toLowerCase();
             const filteredVerifications = verifications.filter(verification => {
                 return (
-                    verification.matricNumber.toLowerCase().includes(searchQuery) ||
-                    (verification.verificationStatus && verification.verificationStatus.toLowerCase().includes(searchQuery))
+                    verification?.matricNumber.toLowerCase().includes(searchQuery) ||
+                    (verification?.verificationStatus && verification?.verificationStatus.toLowerCase().includes(searchQuery))
                 );
             });
 
@@ -231,8 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchQuery = searchVerificationInput.value.toLowerCase();
         const filteredVerifications = verifications.filter(verification => {
             return (
-                verification.matricNumber.toLowerCase().includes(searchQuery) ||
-                (verification.verificationStatus && verification.verificationStatus.toLowerCase().includes(searchQuery))
+                verification?.matricNumber.toLowerCase().includes(searchQuery) ||
+                (verification?.verificationStatus && verification?.verificationStatus.toLowerCase().includes(searchQuery))
             );
         });
 
@@ -256,33 +438,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         paginatedVerifications.forEach((verification) => {
             const row = document.createElement('tr');
-            row.className = `fade-in ${verification.verificationStatus === 'failure' ? 'bg-red-50' : 'hover:bg-gray-50'} transition-colors duration-150`;
+            row.className = `fade-in ${verification?.verificationStatus === 'failure' ? 'bg-red-50' : 'hover:bg-gray-50'} transition-colors duration-150`;
 
-            const statusBadge = verification.verificationStatus === 'success'
+            const statusBadge = verification?.verificationStatus === 'success'
                 ? '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Success</span>'
                 : '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">✗ Failed</span>';
 
-            const confidenceScore = verification.confidenceScore || verification.similarityScore || 0;
+            const confidenceScore = verification?.confidenceScore || verification?.similarityScore || 0;
             const confidenceColor = confidenceScore > 0.8 ? 'text-green-600' :
                 confidenceScore > 0.6 ? 'text-yellow-600' : 'text-red-600';
 
             row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10">
-                                <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                    <span class="text-sm font-medium text-indigo-800">${verification.matricNumber ? verification.matricNumber.slice(-4) : 'N/A'}</span>
-                                </div>
-                            </div>
+                                <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" 
+                                     src="${verification?.storedImageUrl || 'https://via.placeholder.com/48'}" alt="Stored">
                             <div class="ml-4">
-                                <div class="text-sm font-medium text-gray-900">${verification.matricNumber || 'N/A'}</div>
+                                <div class="text-sm font-medium text-gray-900">${verification?.matricNumber || 'N/A'}</div>
                                 <div class="text-sm text-gray-500">Student ID</div>
                             </div>
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm text-gray-900">${verification.timestamp ? new Date(verification.timestamp).toLocaleDateString() : 'N/A'}</div>
-                        <div class="text-sm text-gray-500">${verification.timestamp ? new Date(verification.timestamp).toLocaleTimeString() : ''}</div>
+                        <div class="text-sm text-gray-900">${verification?.timestamp ? new Date(verification?.timestamp).toLocaleDateString() : 'N/A'}</div>
+                        <div class="text-sm text-gray-500">${verification?.timestamp ? new Date(verification?.timestamp).toLocaleTimeString() : ''}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         ${statusBadge}
@@ -291,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="flex items-center">
                             <div class="text-sm font-medium ${confidenceColor}">${(confidenceScore * 100).toFixed(1)}%</div>
                             <div class="ml-2 w-16 bg-gray-200 rounded-full h-2">
-                                <div class="h-2 rounded-full ${verification.verificationStatus === 'success' ? 'bg-green-500' : 'bg-red-500'}" 
+                                <div class="h-2 rounded-full ${verification?.verificationStatus === 'success' ? 'bg-green-500' : 'bg-red-500'}" 
                                      style="width: ${confidenceScore * 100}%"></div>
                             </div>
                         </div>
@@ -300,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="flex items-center space-x-3">
                             <div class="flex flex-col items-center">
                                 <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" 
-                                     src="${verification.capturedImageBase64 || 'https://via.placeholder.com/48'}" alt="Captured">
+                                     src="${verification?.capturedImageBase64 || 'https://via.placeholder.com/48'}" alt="Captured">
                                 <span class="text-xs text-gray-500 mt-1">Captured</span>
                             </div>
                             <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -308,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </svg>
                             <div class="flex flex-col items-center">
                                 <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" 
-                                     src="${verification.storedImageUrl || 'https://via.placeholder.com/48'}" alt="Stored">
+                                     src="${verification?.storedImageUrl || 'https://via.placeholder.com/48'}" alt="Stored">
                                 <span class="text-xs text-gray-500 mt-1">Stored</span>
                             </div>
                         </div>

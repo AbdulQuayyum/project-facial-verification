@@ -7,7 +7,27 @@ import { trackSuspiciousLogins } from "./user.controller.js";
 
 export async function CreateVerification(req, res) {
     try {
-        const verification = new VerificationSchema(req.body);
+        // console.log('Received verification data:', req.body);
+
+        const ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || (req.connection.socket ? req.connection.socket.remoteAddress : null) || req.headers['x-forwarded-for']?.split(',')[0];
+
+        const verificationData = {
+            ...req.body,
+            ipAddress: ipAddress
+        };
+
+        const requiredFields = ['matricNumber', 'verificationStatus', 'confidenceScore', 'similarityScore'];
+        const missingFields = requiredFields.filter(field => verificationData[field] === undefined);
+
+        if (missingFields.length > 0) {
+            return res.status(HTTP_STATUS_BAD_REQUEST).json({
+                success: false,
+                status: HTTP_STATUS_BAD_REQUEST,
+                message: `Missing required fields: ${missingFields.join(', ')}`
+            });
+        }
+
+        const verification = new VerificationSchema(verificationData);
         await verification.save();
 
         const io = getIO();
@@ -25,15 +45,32 @@ export async function CreateVerification(req, res) {
             status: HTTP_STATUS_CREATED,
             message: "Verification saved successfully",
             data: {
-                id: verification._id
+                id: verification._id,
+                ipAddress: ipAddress
             }
         });
+
     } catch (error) {
+        console.error('CreateVerification error:', error);
+        if (error.name === 'ValidationError') {
+            const validationErrors = Object.keys(error.errors).map(key => ({
+                field: key,
+                message: error.errors[key].message
+            }));
+
+            return res.status(HTTP_STATUS_BAD_REQUEST).json({
+                success: false,
+                status: HTTP_STATUS_BAD_REQUEST,
+                message: "Validation failed",
+                errors: validationErrors
+            });
+        }
+
         return res.status(HTTP_STATUS_INTERNAL_SERVER_ERROR).json({
             success: false,
             status: HTTP_STATUS_INTERNAL_SERVER_ERROR,
-            message: "Error occurred",
-            error: error.message
+            message: "Error occurred while saving verification",
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
         });
     }
 }
