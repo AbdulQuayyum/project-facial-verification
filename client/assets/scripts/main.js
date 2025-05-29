@@ -28,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDirection = 0;
     let livenessData = [];
     let verificationInProgress = false;
+    let formattedMatric = '';
+    let storedImageData = '';
 
     function formatMatricNumber(matric) {
         matric = matric.trim();
@@ -358,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
         totalAccuracy = Math.max(totalAccuracy, 0.7);
         totalDetections = Math.max(totalDetections, 10);
 
-        const validDirections = livenessData.filter(data => data.totalDetections > 0 || data.anyMovementDetected ).length;
+        const validDirections = livenessData.filter(data => data.totalDetections > 0 || data.anyMovementDetected).length;
 
         const requiredAccuracy = 0.3;
         const requiredDetections = 3;
@@ -370,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const hasFaceDetection = livenessData.some(data => data.totalDetections > 0);
 
-    const isLive = accuracyPass && detectionsPass && directionsPass;
+        const isLive = accuracyPass && detectionsPass && directionsPass;
 
         console.log(`Liveness analysis:
         - Face detected: ${hasFaceDetection}
@@ -412,8 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Total students found:', students.length);
             console.log('Looking for student:', matric);
 
-            console.log('Sample student numbers:', students.slice(0, 3).map(s => s.student_number));
-
             const student = students.find(s => s.student_number === matric);
             console.log('Student found:', !!student);
 
@@ -431,7 +431,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const img = new Image();
                 img.onload = () => {
                     console.log('Image loaded successfully');
-                    resolve(img);
+                    resolve({
+                        imageElement: img,
+                        base64String: student.image_base64
+                    });
                 };
                 img.onerror = (error) => {
                     console.error('Failed to load image:', error);
@@ -477,18 +480,21 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to save verification log');
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                throw new Error(`Failed to save verification log: ${response.status} - ${errorData.message || response.statusText}`);
             }
 
             return await response.json();
         } catch (error) {
             console.error('Error saving verification log:', error);
+            throw error;
         }
     }
 
     async function startVerification() {
         if (verificationInProgress) return;
 
+        const verificationStartTime = Date.now();
         const matricNumber = matricInput.value.trim();
         if (!matricNumber) {
             showStatus('Please enter a matric number', 'error');
@@ -503,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await initializeFaceAPI();
             }
 
-            const formattedMatric = formatMatricNumber(matricNumber);
+            let formattedMatric = formatMatricNumber(matricNumber);
 
             showStatus('Starting camera...', 'info');
             await startCamera();
@@ -528,10 +534,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             showStatus('Fetching stored image...', 'info');
-            const storedImage = await fetchUserImage(formattedMatric);
+            let storedImageData = await fetchUserImage(formattedMatric);
 
             showStatus('Verifying face match...', 'info');
-            const verificationResult = await verifyFaceMatch(storedImage, finalDetection.descriptor);
+            const verificationResult = await verifyFaceMatch(storedImageData.imageElement, finalDetection.descriptor);
+            // console.log('Verification result:', verificationResult);
 
             const capturedImage = captureFrame();
 
@@ -539,12 +546,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 matricNumber: formattedMatric,
                 verificationStatus: verificationResult.matched ? 'success' : 'failure',
                 confidenceScore: verificationResult.confidence,
-                livenessDetails: livenessResult,
+                similarityScore: verificationResult.confidence,
+                livenessDetails: {
+                    isLive: livenessResult.isLive,
+                    accuracy: livenessResult.accuracy,
+                    totalDetections: livenessResult.totalDetections,
+                    validDirections: livenessResult.validDirections || 0,
+                    reason: livenessResult.reason,
+                    details: livenessResult.details || []
+                },
                 capturedImageBase64: capturedImage,
+                storedImageUrl: storedImageData.base64String,
                 userAgent: navigator.userAgent,
-                timestamp: new Date().toISOString()
+                deviceInfo: {
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                faceDetectionDetails: {
+                    faceDetected: !!finalDetection,
+                    faceConfidence: finalDetection ? finalDetection.detection.score : 0,
+                    landmarksDetected: !!finalDetection?.landmarks
+                },
+                timestamp: new Date().toISOString(),
+                processingTime: Date.now() - verificationStartTime
             };
-
             await saveVerificationLog(logData);
 
             if (verificationResult.matched) {
@@ -564,6 +590,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
+            const errorLogData = {
+                matricNumber: formattedMatric || 'unknown',
+                verificationStatus: 'failure',
+                confidenceScore: 0,
+                similarityScore: 0,
+                livenessDetails: {
+                    isLive: false,
+                    accuracy: 0,
+                    totalDetections: 0,
+                    validDirections: 0,
+                    reason: error.message,
+                    details: []
+                },
+                capturedImageBase64: captureFrame() || '',
+                storedImageUrl: storedImageData.base64String || '',
+                userAgent: navigator.userAgent,
+                deviceInfo: {
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                faceDetectionDetails: {
+                    faceDetected: false,
+                    faceConfidence: 0,
+                    landmarksDetected: false
+                },
+                timestamp: new Date().toISOString(),
+                processingTime: Date.now() - verificationStartTime,
+                errorMessage: error.message
+            };
+            try {
+                await saveVerificationLog(errorLogData);
+            } catch (logError) {
+                console.error('Failed to save error log:', logError);
+            }
             console.error('Verification error:', error);
             showStatus(error.message, 'error');
             sessionStorage.removeItem('verificationPassed');
