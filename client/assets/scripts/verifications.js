@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="text-lg font-medium text-indigo-800">${verification?.matricNumber ? verification?.matricNumber.slice(-4) : 'N/A'}</span>
                             </div>
                             <div class="ml-4">
-                                <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" src="${verification?.storedImageUrl || 'https://via.placeholder.com/48'}" alt="Stored">
+                                <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" src="${verification?.storedImageUrl || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}" alt="Stored">
                                 <p class="text-sm text-gray-500">Student ID</p>
                             </div>
                         </div>
@@ -261,13 +261,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="mt-4 grid grid-cols-2 items-stretch gap-4">
                             <div class="h-full">
                                 <div class="aspect-w-1 aspect-h-1 h-full bg-gray-100 rounded-lg overflow-hidden">
-                                    <img src="${verification?.capturedImageBase64 || 'https://via.placeholder.com/300'}" alt="Captured" class="object-cover h-full w-full">
+                                    <img src="${verification?.capturedImageBase64 || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}" alt="Captured" class="object-cover h-full w-full">
                                 </div>
                                 <p class="mt-2 text-sm text-center text-gray-500">Captured Image</p>
                             </div>
                             <div class="h-full">
                                 <div class="aspect-w-1 aspect-h-1 h-full bg-gray-100 rounded-lg overflow-hidden">
-                                    <img src="${verification?.storedImageUrl || 'https://via.placeholder.com/300'}" alt="Stored" class="object-cover h-full w-full">
+                                    <img src="${verification?.storedImageUrl || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}" alt="Stored" class="object-cover h-full w-full">
                                 </div>
                                 <p class="mt-2 text-sm text-center text-gray-500">Stored Image</p>
                             </div>
@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
                                 <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" 
-                                     src="${verification?.storedImageUrl || 'https://via.placeholder.com/48'}" alt="Stored">
+                                     src="${verification?.storedImageUrl || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}" alt="Stored">
                             <div class="ml-4">
                                 <div class="text-sm font-medium text-gray-900">${verification?.matricNumber || 'N/A'}</div>
                                 <div class="text-sm text-gray-500">Student ID</div>
@@ -479,7 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="flex items-center space-x-3">
                             <div class="flex flex-col items-center">
                                 <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" 
-                                     src="${verification?.capturedImageBase64 || 'https://via.placeholder.com/48'}" alt="Captured">
+                                     src="${verification?.capturedImageBase64 || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}" alt="Captured">
                                 <span class="text-xs text-gray-500 mt-1">Captured</span>
                             </div>
                             <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </svg>
                             <div class="flex flex-col items-center">
                                 <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200" 
-                                     src="${verification?.storedImageUrl || 'https://via.placeholder.com/48'}" alt="Stored">
+                                     src="${verification?.storedImageUrl || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png'}" alt="Stored">
                                 <span class="text-xs text-gray-500 mt-1">Stored</span>
                             </div>
                         </div>
@@ -575,10 +575,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${riskColor}">
                             ${riskLevel} Risk
                         </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button class="text-red-600 hover:text-red-900 mr-3">Block User</button>
-                        <button class="text-gray-600 hover:text-gray-900">Investigate</button>
                     </td>
                 `;
             tbody.appendChild(row);
