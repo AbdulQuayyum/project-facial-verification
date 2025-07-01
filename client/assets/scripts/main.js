@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let livenessData = [];
     let verificationInProgress = false;
     let formattedMatric = '';
-    let storedImageData = '';
+    let storedImageData = { base64String: '' };
 
     function formatMatricNumber(matric) {
         matric = matric.trim();
@@ -63,6 +63,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateProgress(percentage) {
         const degrees = (percentage / 100) * 360;
         progressCircle.style.background = `conic-gradient(#00ff88 ${degrees}deg, transparent ${degrees}deg)`;
+    }
+
+    async function getDeviceDetails() {
+        const deviceInfo = {
+            platform: navigator.platform || 'unknown',
+            language: navigator.language || 'unknown',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown',
+            userAgent: navigator.userAgent || 'unknown',
+            screenResolution: `${window.screen.width}x${window.screen.height}`,
+            devicePixelRatio: window.devicePixelRatio || 1,
+            browser: {
+                name: navigator.appName || 'unknown',
+                version: navigator.appVersion || 'unknown',
+                vendor: navigator.vendor || 'unknown'
+            }
+        };
+
+        try {
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            deviceInfo.ipAddress = ipData.ip || 'unknown';
+        } catch (error) {
+            console.error('Failed to fetch IP address:', error);
+            deviceInfo.ipAddress = 'unknown';
+        }
+
+        try {
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+            });
+            deviceInfo.geolocation = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy
+            };
+        } catch (error) {
+            console.error('Failed to fetch geolocation:', error);
+            deviceInfo.geolocation = { status: 'unavailable', reason: error.message };
+        }
+
+        return deviceInfo;
     }
 
     async function initializeFaceAPI() {
@@ -205,18 +246,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const feedbackDiv = document.createElement('div');
         feedbackDiv.id = 'directionFeedback';
         feedbackDiv.style.cssText = `
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0,128,0,0.9);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 20px;
-        font-size: 16px;
-        font-weight: bold;
-        z-index: 1000;
-    `;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,128,0,0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 1000;
+        `;
         videoContainer.appendChild(feedbackDiv);
 
         for (let i = 0; i < LIVENESS_DIRECTIONS.length; i++) {
@@ -297,9 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         const randomEncouragement = encouragement[Math.floor(Math.random() * encouragement.length)];
 
                         feedbackDiv.innerHTML = `
-                        ✅ ${randomEncouragement}<br>
-                        Detected: ${detectedDirection.toUpperCase()} | ${Math.ceil(timeRemaining / 1000)}s left
-                    `;
+                            ✅ ${randomEncouragement}<br>
+                            Detected: ${detectedDirection.toUpperCase()} | ${Math.ceil(timeRemaining / 1000)}s left
+                        `;
                         feedbackDiv.style.backgroundColor = 'rgba(0,128,0,0.9)';
 
                     } else {
@@ -334,16 +375,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function analyzeLivenessData() {
         console.log('Analyzing liveness data:', livenessData);
 
-        // if (livenessData.length === 0) {
-        //     return {
-        //         isLive: false,
-        //         accuracy: 0,
-        //         totalDetections: 0,
-        //         details: livenessData,
-        //         reason: 'No liveness data collected'
-        //     };
-        // }
-
         if (livenessData.length === 0) {
             return {
                 isLive: true,
@@ -375,11 +406,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLive = accuracyPass && detectionsPass && directionsPass;
 
         console.log(`Liveness analysis:
-        - Face detected: ${hasFaceDetection}
-        - Accuracy: ${(totalAccuracy * 100).toFixed(1)}%
-        - Detections: ${totalDetections}
-        - Valid directions: ${validDirections}
-        - Result: ${isLive ? 'PASS ✅' : 'FAIL ❌'}`);
+            - Face detected: ${hasFaceDetection}
+            - Accuracy: ${(totalAccuracy * 100).toFixed(1)}%
+            - Detections: ${totalDetections}
+            - Valid directions: ${validDirections}
+            - Result: ${isLive ? 'PASS ✅' : 'FAIL ❌'}`);
 
         let reason = 'Passed - liveness verified!';
         if (!isLive) {
@@ -496,8 +527,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const verificationStartTime = Date.now();
         const matricNumber = matricInput.value.trim();
+        let capturedImage = '';
+        storedImageData = { base64String: '' };
+
+        let deviceInfo;
+        try {
+            deviceInfo = await getDeviceDetails();
+        } catch (error) {
+            console.error('Failed to get device details:', error);
+            deviceInfo = {
+                platform: navigator.platform || 'unknown',
+                language: navigator.language || 'unknown',
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown',
+                userAgent: navigator.userAgent || 'unknown',
+                screenResolution: 'unknown',
+                devicePixelRatio: 1,
+                browser: { name: 'unknown', version: 'unknown', vendor: 'unknown' },
+                ipAddress: 'unknown',
+                geolocation: { status: 'unavailable', reason: error.message }
+            };
+        }
+
         if (!matricNumber) {
             showStatus('Please enter a matric number', 'error');
+            capturedImage = captureFrame();
+            const errorLogData = {
+                matricNumber: matricNumber || 'unknown',
+                verificationStatus: 'failure',
+                confidenceScore: 0,
+                similarityScore: 0,
+                livenessDetails: {
+                    isLive: false,
+                    accuracy: 0,
+                    totalDetections: 0,
+                    validDirections: 0,
+                    reason: 'No matric number provided',
+                    details: []
+                },
+                capturedImageBase64: capturedImage,
+                storedImageUrl: '',
+                userAgent: navigator.userAgent || 'unknown',
+                deviceInfo: deviceInfo,
+                faceDetectionDetails: {
+                    faceDetected: false,
+                    faceConfidence: 0,
+                    landmarksDetected: false
+                },
+                timestamp: new Date().toISOString(),
+                processingTime: Date.now() - verificationStartTime,
+                errorMessage: 'No matric number provided'
+            };
+            await saveVerificationLog(errorLogData);
             return;
         }
 
@@ -505,11 +585,18 @@ document.addEventListener('DOMContentLoaded', () => {
         startButton.disabled = true;
 
         try {
+            formattedMatric = formatMatricNumber(matricNumber);
+
             if (!isModelLoaded) {
                 await initializeFaceAPI();
             }
 
-            let formattedMatric = formatMatricNumber(matricNumber);
+            showStatus('Fetching stored image...', 'info');
+            try {
+                storedImageData = await fetchUserImage(formattedMatric);
+            } catch (error) {
+                throw new Error(`Failed to fetch stored image: ${error.message}`);
+            }
 
             showStatus('Starting camera...', 'info');
             await startCamera();
@@ -522,25 +609,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log('Liveness result:', livenessResult);
 
-            // if (!livenessResult.isLive) {
-            //     throw new Error(`Liveness check failed: ${livenessResult.reason || 'Please ensure you follow the directions carefully.'}`);
-            // }
-
             showStatus('Capturing verification image...', 'info');
+            capturedImage = captureFrame();
             const finalDetection = await detectFace();
 
             if (!finalDetection) {
                 throw new Error('No face detected for verification');
             }
 
-            showStatus('Fetching stored image...', 'info');
-            let storedImageData = await fetchUserImage(formattedMatric);
-
             showStatus('Verifying face match...', 'info');
             const verificationResult = await verifyFaceMatch(storedImageData.imageElement, finalDetection.descriptor);
-            // console.log('Verification result:', verificationResult);
-
-            const capturedImage = captureFrame();
 
             const logData = {
                 matricNumber: formattedMatric,
@@ -557,12 +635,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 capturedImageBase64: capturedImage,
                 storedImageUrl: storedImageData.base64String,
-                userAgent: navigator.userAgent,
-                deviceInfo: {
-                    platform: navigator.platform,
-                    language: navigator.language,
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                },
+                userAgent: navigator.userAgent || 'unknown',
+                deviceInfo: deviceInfo,
                 faceDetectionDetails: {
                     faceDetected: !!finalDetection,
                     faceConfidence: finalDetection ? finalDetection.detection.score : 0,
@@ -591,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             const errorLogData = {
-                matricNumber: formattedMatric || 'unknown',
+                matricNumber: formattedMatric || matricNumber || 'unknown',
                 verificationStatus: 'failure',
                 confidenceScore: 0,
                 similarityScore: 0,
@@ -603,14 +677,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     reason: error.message,
                     details: []
                 },
-                capturedImageBase64: captureFrame() || '',
+                capturedImageBase64: capturedImage || captureFrame(),
                 storedImageUrl: storedImageData.base64String || '',
-                userAgent: navigator.userAgent,
-                deviceInfo: {
-                    platform: navigator.platform,
-                    language: navigator.language,
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                },
+                userAgent: navigator.userAgent || 'unknown',
+                deviceInfo: deviceInfo,
                 faceDetectionDetails: {
                     faceDetected: false,
                     faceConfidence: 0,
@@ -620,11 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 processingTime: Date.now() - verificationStartTime,
                 errorMessage: error.message
             };
-            try {
-                await saveVerificationLog(errorLogData);
-            } catch (logError) {
-                console.error('Failed to save error log:', logError);
-            }
+            await saveVerificationLog(errorLogData);
             console.error('Verification error:', error);
             showStatus(error.message, 'error');
             sessionStorage.removeItem('verificationPassed');
@@ -643,6 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
         matricInput.value = '';
         retryButton.style.display = 'none';
         livenessSteps.style.display = 'none';
+        storedImageData = { base64String: '' };
 
         document.querySelectorAll('.step-indicator').forEach(step => {
             step.classList.remove('active', 'completed');
