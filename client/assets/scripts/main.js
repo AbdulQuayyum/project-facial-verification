@@ -529,6 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const matricNumber = matricInput.value.trim();
         let capturedImage = '';
         storedImageData = { base64String: '' };
+        let verificationLogged = false;
 
         let deviceInfo;
         try {
@@ -646,6 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 processingTime: Date.now() - verificationStartTime
             };
             await saveVerificationLog(logData);
+            verificationLogged = true;
 
             if (verificationResult.matched) {
                 showStatus(
@@ -664,33 +666,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
-            const errorLogData = {
-                matricNumber: formattedMatric || matricNumber || 'unknown',
-                verificationStatus: 'failure',
-                confidenceScore: 0,
-                similarityScore: 0,
-                livenessDetails: {
-                    isLive: false,
-                    accuracy: 0,
-                    totalDetections: 0,
-                    validDirections: 0,
-                    reason: error.message,
-                    details: []
-                },
-                capturedImageBase64: capturedImage || captureFrame(),
-                storedImageUrl: storedImageData.base64String || '',
-                userAgent: navigator.userAgent || 'unknown',
-                deviceInfo: deviceInfo,
-                faceDetectionDetails: {
-                    faceDetected: false,
-                    faceConfidence: 0,
-                    landmarksDetected: false
-                },
-                timestamp: new Date().toISOString(),
-                processingTime: Date.now() - verificationStartTime,
-                errorMessage: error.message
-            };
-            await saveVerificationLog(errorLogData);
+            if (!verificationLogged) {
+                const errorLogData = {
+                    matricNumber: formattedMatric || matricNumber || 'unknown',
+                    verificationStatus: 'failure',
+                    confidenceScore: 0,
+                    similarityScore: 0,
+                    livenessDetails: {
+                        isLive: false,
+                        accuracy: 0,
+                        totalDetections: 0,
+                        validDirections: 0,
+                        reason: error.message,
+                        details: []
+                    },
+                    capturedImageBase64: capturedImage || captureFrame(),
+                    storedImageUrl: storedImageData.base64String || '',
+                    userAgent: navigator.userAgent || 'unknown',
+                    deviceInfo: deviceInfo,
+                    faceDetectionDetails: {
+                        faceDetected: false,
+                        faceConfidence: 0,
+                        landmarksDetected: false
+                    },
+                    timestamp: new Date().toISOString(),
+                    processingTime: Date.now() - verificationStartTime,
+                    errorMessage: error.message
+                };
+                await saveVerificationLog(errorLogData);
+            }
             console.error('Verification error:', error);
             showStatus(error.message, 'error');
             sessionStorage.removeItem('verificationPassed');
